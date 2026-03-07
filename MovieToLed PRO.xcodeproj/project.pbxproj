@@ -28,7 +28,9 @@
 		980426442E8D1C1D0058FFDF /* MovieToLed.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9804263F2E8D1C1D0058FFDF /* MovieToLed.cpp */; };
 		980426452E8D1C1D0058FFDF /* Converter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 980426342E8D1C1D0058FFDF /* Converter.cpp */; };
 		980426462E8D1C1D0058FFDF /* M5LedMetadata.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9804263D2E8D1C1D0058FFDF /* M5LedMetadata.cpp */; };
-		98A88C1E2F22284D0021A073 /* ProductConfig.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 98A88C1D2F22284D0021A073 /* ProductConfig.cpp */; };
+		98AA2E112F5B86DD004CC4AB /* ProductProfileManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 98AA2E102F5B86DD004CC4AB /* ProductProfileManager.cpp */; };
+		98AA2E122F5B86DD004CC4AB /* LedColorCorrection.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 98AA2E072F5B86DD004CC4AB /* LedColorCorrection.cpp */; };
+		98AA2E132F5B86DD004CC4AB /* MovieToLedData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 98AA2E0A2F5B86DD004CC4AB /* MovieToLedData.cpp */; };
 		"ABAA0E06-6DA7-4654-8B19-27A32925EE8C" /* ofxCvHaarFinder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = "912D232C-0EAD-4084-BBAC-5C6B479A40C2" /* ofxCvHaarFinder.cpp */; };
 		"AFC2C1B6-E51F-4306-A919-51ACB097EFD8" /* ofxPanel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = "932CE28F-7863-44AE-8021-EB89EE352A38" /* ofxPanel.cpp */; };
 		"BAD887DC-2DEE-48D3-9B11-05D1B2B6394C" /* ofxGuiGroup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = "C8D9A8A7-2283-4DEF-973F-62F4AE0CB87E" /* ofxGuiGroup.cpp */; };
@@ -669,8 +671,17 @@
 		"9806688E-8D7C-49BE-9DE2-FA2B6F093E2C" /* autotuned_index.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = autotuned_index.h; sourceTree = "<group>"; };
 		"9832E797-FC9E-4A78-8B11-F2B48858AF9C" /* ofxCvContourFinder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ofxCvContourFinder.cpp; sourceTree = "<group>"; };
 		"985FE60D-649C-4A26-9FBA-CC09995E2CD6" /* video.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = video.hpp; sourceTree = "<group>"; };
-		98A88C1C2F22284D0021A073 /* ProductConfig.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ProductConfig.hpp; sourceTree = "<group>"; };
-		98A88C1D2F22284D0021A073 /* ProductConfig.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ProductConfig.cpp; sourceTree = "<group>"; };
+		98AA2E062F5B86DD004CC4AB /* LedColorCorrection.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = LedColorCorrection.hpp; sourceTree = "<group>"; };
+		98AA2E072F5B86DD004CC4AB /* LedColorCorrection.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = LedColorCorrection.cpp; sourceTree = "<group>"; };
+		98AA2E082F5B86DD004CC4AB /* LedLoader.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = LedLoader.hpp; sourceTree = "<group>"; };
+		98AA2E092F5B86DD004CC4AB /* MovieToLedData.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MovieToLedData.hpp; sourceTree = "<group>"; };
+		98AA2E0A2F5B86DD004CC4AB /* MovieToLedData.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MovieToLedData.cpp; sourceTree = "<group>"; };
+		98AA2E0B2F5B86DD004CC4AB /* MovieToLedFileUtils.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MovieToLedFileUtils.hpp; sourceTree = "<group>"; };
+		98AA2E0C2F5B86DD004CC4AB /* MovieToLedRuntimeState.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MovieToLedRuntimeState.hpp; sourceTree = "<group>"; };
+		98AA2E0D2F5B86DD004CC4AB /* ProductProfile.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ProductProfile.hpp; sourceTree = "<group>"; };
+		98AA2E0E2F5B86DD004CC4AB /* ProductProfileLoader.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ProductProfileLoader.hpp; sourceTree = "<group>"; };
+		98AA2E0F2F5B86DD004CC4AB /* ProductProfileManager.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ProductProfileManager.hpp; sourceTree = "<group>"; };
+		98AA2E102F5B86DD004CC4AB /* ProductProfileManager.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ProductProfileManager.cpp; sourceTree = "<group>"; };
 		"98B53D81-F4AB-4178-84C5-A1E85B6556FC" /* transform.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = transform.hpp; sourceTree = "<group>"; };
 		"98BCD6DD-18DC-47BE-8579-4EFEA550834F" /* reduce_key_val.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = reduce_key_val.hpp; sourceTree = "<group>"; };
 		98C417D02ED56C31009DE530 /* MovieToLedUtils.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MovieToLedUtils.hpp; sourceTree = "<group>"; };
@@ -2530,8 +2541,17 @@
 		980426402E8D1C1D0058FFDF /* MovieToLed */ = {
 			isa = PBXGroup;
 			children = (
-				98A88C1C2F22284D0021A073 /* ProductConfig.hpp */,
-				98A88C1D2F22284D0021A073 /* ProductConfig.cpp */,
+				98AA2E062F5B86DD004CC4AB /* LedColorCorrection.hpp */,
+				98AA2E072F5B86DD004CC4AB /* LedColorCorrection.cpp */,
+				98AA2E082F5B86DD004CC4AB /* LedLoader.hpp */,
+				98AA2E092F5B86DD004CC4AB /* MovieToLedData.hpp */,
+				98AA2E0A2F5B86DD004CC4AB /* MovieToLedData.cpp */,
+				98AA2E0B2F5B86DD004CC4AB /* MovieToLedFileUtils.hpp */,
+				98AA2E0C2F5B86DD004CC4AB /* MovieToLedRuntimeState.hpp */,
+				98AA2E0D2F5B86DD004CC4AB /* ProductProfile.hpp */,
+				98AA2E0E2F5B86DD004CC4AB /* ProductProfileLoader.hpp */,
+				98AA2E0F2F5B86DD004CC4AB /* ProductProfileManager.hpp */,
+				98AA2E102F5B86DD004CC4AB /* ProductProfileManager.cpp */,
 				98C417D02ED56C31009DE530 /* MovieToLedUtils.hpp */,
 				980426332E8D1C1D0058FFDF /* Converter.hpp */,
 				980426342E8D1C1D0058FFDF /* Converter.cpp */,
@@ -3537,7 +3557,6 @@
 				"51845A3B-2C81-4420-84D8-A5AF222A7E70" /* ofxBaseGui.cpp in Sources */,
 				"25B0DAFC-6D1D-4220-A622-6BA6D78D6B65" /* ofxButton.cpp in Sources */,
 				"5A2B17B7-0AF0-4123-815E-47A1E98C06B8" /* ofxColorPicker.cpp in Sources */,
-				98A88C1E2F22284D0021A073 /* ProductConfig.cpp in Sources */,
 				"BAD887DC-2DEE-48D3-9B11-05D1B2B6394C" /* ofxGuiGroup.cpp in Sources */,
 				"0ACBB68E-64D2-4E75-98CF-3842DF9BF131" /* ofxInputField.cpp in Sources */,
 				"1BCC14AC-16FB-4908-BF46-1C94609EF183" /* ofxLabel.cpp in Sources */,
@@ -3549,6 +3568,9 @@
 				"38359041-2DBE-48AD-8AFB-A3CA7F2C1F59" /* ofxJSONElement.cpp in Sources */,
 				"4DD11012-87ED-4A91-98E2-EA4A06419A22" /* ofxCvColorImage.cpp in Sources */,
 				"3A4A65FA-2040-4C2E-AE6D-0F8AFA67E17F" /* ofxCvContourFinder.cpp in Sources */,
+				98AA2E112F5B86DD004CC4AB /* ProductProfileManager.cpp in Sources */,
+				98AA2E122F5B86DD004CC4AB /* LedColorCorrection.cpp in Sources */,
+				98AA2E132F5B86DD004CC4AB /* MovieToLedData.cpp in Sources */,
 				"2A84B007-A00A-4378-880F-A476BF34EEBF" /* ofxCvFloatImage.cpp in Sources */,
 				"61CC2A93-CB66-483D-AFB1-BB5053747087" /* ofxCvGrayscaleImage.cpp in Sources */,
 				980426412E8D1C1D0058FFDF /* Extractor.cpp in Sources */,

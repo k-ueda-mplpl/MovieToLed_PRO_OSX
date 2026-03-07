@@ -1,62 +1,15 @@
 #ifndef LED_PRODUCT_HPP
 #define LED_PRODUCT_HPP
 
-#include <ofFileUtils.h>
-#include <ofUtils.h>
+#include "ProductProfile.hpp"
+#include <cstdint>
 #include <vector>
 
-enum class LedType {
-	NORMAL,
-	PANEL
-};
-
-enum class DeviceType {
-	LINE4,
-	LINE8,
-	LINE8_1000FPS,
-	UNKNOWN
-};
-
-enum class DeviceIdFormat {
-	DEC,
-	HEX
-};
-
-// データ作成するプロダクト情報
-struct ProductContent {
-	std::string product_name;
-	uint16_t num_product, num_device;
-	DeviceType device_type;
-	DeviceIdFormat id_format;
-	uint16_t start_product_id, end_product_id;
-	bool is_data_generate;
-	ProductContent(std::string name, uint16_t num) {
-		product_name = name;
-		num_product = num;
-		num_device = 1;
-		device_type = DeviceType::LINE8;
-		id_format = DeviceIdFormat::DEC;
-		start_product_id = 0;
-		end_product_id = num_product - 1;
-		is_data_generate = true;
-	}
-	void setDeviceInfo(DeviceType type, uint16_t num) {
-		num_device = num;
-		device_type = type;
-		// デバイス数が10台以上16台以下なら自動でHEXに
-		// 1プロダクトのデバイスが収まるから
-		if (num_device > 10 && num_device <= 16) id_format = DeviceIdFormat::HEX;
-		// if (num_product > 10 && num_product <= 16) id_format = DeviceIdFormat::HEX;
-	}
-	bool setCreationRange(uint16_t from, uint16_t to) {
-		if (from >= num_product || to >= num_product || from > to) return false;
-		start_product_id = from;
-		end_product_id = to;
-		return true;
-	}
-};
-
 struct Led {
+	enum LedType {
+		NORMAL,
+		PANEL
+	};
 	short x, y;
 	LedType type;
 	Led() {
@@ -97,16 +50,17 @@ public:
 	~LedProduct() {
 		devices.clear();
 	};
-
-private:
 };
 
 class LedProductManager {
 public:
-	LedProductManager();
-	~LedProductManager();
+	LedProductManager(std::vector<ProductProfile> & profiles_ref)
+		: product_profiles(profiles_ref) { products.clear(); };
 
-	void setup(ProductContent * content_ptr);
+	~LedProductManager() { products.clear(); };
+
+	void selectProfile(uint8_t index);
+
 	// void setLed(std::string path, uint16_t start_id, std::string & error_msg);
 	void setLed(std::string path, uint16_t head_id, std::string & error_msg);
 
@@ -115,21 +69,28 @@ public:
 	std::string getName();
 	uint16_t getNumProduct();
 	uint16_t getNumDevice();
-	DeviceType getDeviceType();
+	ProductProfile::DeviceType getDeviceType();
 	uint16_t getStartProductId();
 	uint16_t getEndProductId();
-	DeviceIdFormat getDeviceIdFormat();
+	ProductProfile::DeviceIdFormat getDeviceIdFormat();
+	
+	bool isGenerateData();
+	bool isOutputBin();
+	bool isOutput4lineBin();
+	bool isOutput8lineBin();
+
 	uint16_t getNumLed(uint16_t device_id, uint8_t line_id);
 	const Led * getLed(uint16_t product_id, uint16_t device_id, uint8_t line_id, uint8_t led_id);
 
+	uint8_t getProfileIndex();
+
 private:
-	ProductContent * content = nullptr;
+	std::vector<ProductProfile> & product_profiles;
+	uint8_t profile_index;
 	std::vector<LedProduct> products;
 	inline static const Led dummy_led = Led();
 
-	bool isValid() {
-		return content;
-	};
+	void setupProducts(const ProductProfile & profile);
 };
 
 #endif

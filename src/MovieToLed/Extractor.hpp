@@ -1,7 +1,12 @@
 #ifndef EXTRACTOR_HPP
 #define EXTRACTOR_HPP
 
+#include "LedColorCorrection.hpp"
+#include "LedProduct.hpp"
+#include "MovieToLedData.hpp"
 #include "MovieToLedUtils.hpp"
+#include "ProductProfile.hpp"
+#include <cstdint>
 #include <functional>
 #include <ofxGui.h>
 #include <ofxOpenCv.h>
@@ -13,54 +18,108 @@
 
 class Extractor {
 public:
-	Extractor();
-	virtual ~Extractor();
-	void setup(MovieToLedUtils::OutputData * data_ptr);
+	ofImage video_image;
+	Extractor(MovieToLedData & mtl_data_ref, LedColorCorrection & led_color_correction_ref);
+	~Extractor();
 	void setOutputDir(string path);
 	void setCallback(std::function<void()> func);
 
 	void loadVideo(string path);
-	void loadLed(uint8_t scene_num);
+	void clearVideo();
+	bool isLoadedVideo() {
+		return video_capture.isOpened();
+	}
+	string getVideoFileName() {
+		return video_file_name;
+	}
 
-	bool isExistM5LED(ProductContent & content, uint8_t sound_num);
+	// void loadLed(uint8_t scene_num);
+
+	void allocate(int w, int h);
+
+	void setSoundNumber(uint8_t num);
+	void setLoopPlayback(bool loop);
+
+	bool isLoopPlayback() {
+		return loop_playback;
+	}
+
+	uint16_t getTotalFrame() {
+		return total_frame;
+	}
+
+	uint16_t getCurrentFrame() {
+		return curr_frame;
+	}
+
+	uint8_t getDurationMin() {
+		return duration_min;
+	}
+
+	uint8_t getDurationSec() {
+		return duration_sec;
+	}
+
+	void createLogBlackFile(string path);
+	void createLogSkipFile(string path);
+	void createLogFrameFile(string path);
+	void createLogScene(string path);
+
+	bool isExistM5LED(ProductProfile & profile, uint8_t sound_num);
 	bool isCreateDir(char * buff, int buff_size, uint16_t product_id, uint16_t start_product_id);
-	void createM5LED(uint8_t sound_num);
+	void createM5LED();
 	void writeM5LED(ofFile & file, string product_name, uint8_t sound_num, uint16_t product_id, uint16_t device_id, uint8_t * dat, int dat_size);
 
 	void setHeader(uint16_t product_id, uint16_t device_id);
 	void writeFirstData(uint8_t sound_num);
 
-	void correct(uint8_t (&dat)[3], LedType type);
+	void applyColorCorrection(uint8_t (&dat)[3], Led::LedType type);
 	void logBlack(ofFile & file, string path, bool is_src_blk, bool is_dat_blk, uint16_t product_id, uint16_t device_id);
 	void logSkip(ofFile & file, string path, int cur_pos, int prev_pos);
 	void logFrame(ofFile & file, string path, unsigned int & count, uint16_t frame, bool is_end = false);
 
+	void ready();
 	bool getVideoFrame(int frame, ofImage & img);
-	void updateScene(bool is_first = false);
+	void logScene(uint8_t scene, uint16_t frame);
+	void updateScene(uint16_t frame, bool is_first = false);
 	void writeVideoData(uint8_t sound_num);
 	void extract();
 
-protected:
+	void drawLogSkip(int x, int y);
+
+private:
+	// MtL Data
+	MovieToLedData & mtl_data;
+	// Led Color
+	LedColorCorrection & led_color_correction;
+
+	// buffer
+	uint8_t buff[MovieToLedData::BUFF_SIZE];
+	ofFile dat_file;
+	char file_name[18];
+	string output_dir;
+	char dir_name[13];
+
+	std::function<void()> callback;
+
+	uint64_t error_time;
+	uint16_t error_frame;
+	bool is_error_frame;
+
 	// video
 	string video_file_name;
 	// ofVideoPlayer video_player;
 	// ofPixels video_pixels;
 	// OSXの場合
 	// ofVideoPlayerを使うとフレームが正確に1ずつ更新できない -> openCVのVideoCaptureを使用
-	ofImage video_image;
 	cv::VideoCapture video_capture;
 	cv::Mat frame_mat;
-	uint16_t num_frame, prev_frame, total_frame;
+	uint16_t curr_frame, prev_frame, total_frame;
 	uint8_t duration_min, duration_sec;
 	// scene
 	uint8_t curr_scene, prev_scene;
-	// data correct
-	inline static constexpr float gamma = 2.2; //gammma
-	uint8_t gamma_table[256];
-	uint8_t led_white_gain;
-	uint8_t led_rgb_gain;
-	uint8_t panel_white_gain;
-	uint8_t panel_rgb_gain;
+	string log_scene_path;
+
 	bool loop_playback;
 	// sound number
 	uint8_t sound_number;
@@ -78,26 +137,6 @@ protected:
 	uint16_t num_device;
 	uint16_t start_product_id;
 	uint16_t end_product_id;
-
-private:
-	// buffer
-	uint8_t buff[MovieToLedUtils::BUFF_SIZE];
-	ofFile dat_file;
-	char file_name[18];
-	string output_dir;
-	char dir_name[13];
-
-	std::function<void()> callback;
-
-	MovieToLedUtils::OutputData * output_data = nullptr;
-	bool isValid() {
-		return output_data;
-	};
-
-	uint64_t error_time;
-	uint16_t error_frame;
-	bool is_error_frame;
 };
 
 #endif
-

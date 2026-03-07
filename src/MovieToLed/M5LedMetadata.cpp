@@ -1,4 +1,8 @@
 #include "M5LedMetadata.hpp"
+#include "MovieToLedFileUtils.hpp"
+#include "MovieToLedUtils.hpp"
+#include <ofFileUtils.h>
+#include <vector>
 
 M5LedMetadata::M5LedMetadata() {
 	for (int i = 0; i <= 10; i++) {
@@ -29,7 +33,7 @@ void M5LedMetadata::write(std::string dir_path, uint8_t sound_num) {
 		lines = ofSplitString(buff.getText(), "\n");
 	} else {
 		// ファイルがない->create
-		FileUtils::createFile(file_path, false);
+		MovieToLedFileUtils::createFile(file_path, false);
 	}
 	while (lines.size() < 11) {
 		char col[15];
@@ -57,13 +61,13 @@ void M5LedMetadata::write(std::string dir_path, uint8_t sound_num) {
 }
 
 void M5LedMetadata::clear(std::string dir_path) {
-	for(int sound_num = 0; sound_num <= 10; sound_num++){
+	for (int sound_num = 0; sound_num <= 10; sound_num++) {
 		set(sound_num, 0, 0xff);
 	}
 	std::string file_path = dir_path + "/" + MovieToLedUtils::FilePaths::METADATA_FILE;
 	ofFile file(file_path);
 	std::vector<std::string> lines;
-	if (!file.exists()) FileUtils::createFile(file_path, false);
+	if (!file.exists()) MovieToLedFileUtils::createFile(file_path, false);
 	while (lines.size() < 11) {
 		char col[15];
 		snprintf(col, 15, "%d,0,NO DATA,", static_cast<int>(lines.size()));

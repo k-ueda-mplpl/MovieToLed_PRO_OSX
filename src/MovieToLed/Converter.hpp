@@ -1,18 +1,26 @@
 #ifndef CONVERTER_HPP
 #define CONVERTER_HPP
 
-#include "MovieToLedUtils.hpp"
+#include "MovieToLedData.hpp"
+#include "ProductProfile.hpp"
+#include <cstdint>
+#include <ofFileUtils.h>
+#include <vector>
 
 class Converter {
 public:
-	Converter();
-	virtual ~Converter();
-	void setup(MovieToLedUtils::OutputData * data_ptr, std::vector<std::string> * completed_file_ptr);
+	std::vector<std::string> completed_file;
+
+	Converter(MovieToLedData & mtl_data_ref)
+		: mtl_data(mtl_data_ref) { completed_file.clear(); };
+	~Converter();
 	void setOutputDir(std::string path);
 
-	bool isCreateDir(char * buff, int buff_size, uint16_t product_id, uint8_t device_id, DeviceIdFormat id_format, uint16_t start_product_id, uint16_t max_product_count);
-	void setBINName(char * buff, int buff_size, uint8_t sound_num, uint16_t product_id, uint16_t device_id, DeviceIdFormat id_format, uint16_t block_size, uint16_t max_product_count);
-	void removePreviousBIN(std::string dir_path, uint8_t sound_num, uint16_t product_id, uint16_t num_device, DeviceIdFormat id_format, uint16_t block_size, uint16_t max_product_count);
+	void setSoundNumber(uint8_t num);
+
+	bool isCreateDir(char * buff, int buff_size, uint16_t product_id, uint8_t device_id, ProductProfile::DeviceIdFormat id_format, uint16_t start_product_id, uint16_t max_product_count);
+	void setBINName(char * buff, int buff_size, uint8_t sound_num, uint16_t product_id, uint16_t device_id, ProductProfile::DeviceIdFormat id_format, uint16_t block_size, uint16_t max_product_count);
+	void removePreviousBIN(std::string dir_path, uint8_t sound_num, uint16_t product_id, uint16_t num_device, ProductProfile::DeviceIdFormat id_format, uint16_t block_size, uint16_t max_product_count);
 
 	void createBIN8LINE(std::string parent_path, uint8_t sound_num);
 	void createBIN4LINE(std::string parent_path, uint8_t sound_num);
@@ -30,40 +38,42 @@ public:
 	void convert1000FPS(ofFile & src_file, ofFile & dst_file, unsigned int & dst_size);
 	void convert4LINE(ofFile & src_file, ofFile * dst_file, unsigned int * dst_size, int num_dst = 2);
 
-	void createBIN(uint8_t sound_num);
-	bool convert(MovieToLedUtils::OutputFiles & output_files, uint8_t sound_number, uint16_t product_id, uint16_t device_id);
+	void createBIN();
+	bool convert(OutputFiles & output_files, uint8_t sound_number, uint16_t product_id, uint16_t device_id);
 	void process();
 	bool isFinish() {
 		return convert_count >= max_convert_count;
 	}
 
-	static uint16_t getBlockSize(uint16_t num_device, DeviceIdFormat id_format);
-	static uint16_t getMaxProductCount(uint16_t num_device, DeviceIdFormat id_format);
+	int getConvertCount(){
+		return convert_count;
+	}
 
-protected:
-	std::string log_conv_path;
-	uint8_t sound_number;
-	int convert_count, max_convert_count;
+	int getMaxConvertCount(){
+		return max_convert_count;
+	}
+
+	static uint16_t getBlockSize(uint16_t num_device, ProductProfile::DeviceIdFormat id_format);
+	static uint16_t getMaxProductCount(uint16_t num_device, ProductProfile::DeviceIdFormat id_format);
 
 private:
-	uint8_t dst[MovieToLedUtils::BUFF_SIZE], src[MovieToLedUtils::BUFF_SIZE];
-	uint8_t next[MovieToLedUtils::BUFF_SIZE], prev[MovieToLedUtils::BUFF_SIZE];
+	MovieToLedData & mtl_data;
+
+	uint8_t dst[MovieToLedData::BUFF_SIZE], src[MovieToLedData::BUFF_SIZE];
+	uint8_t next[MovieToLedData::BUFF_SIZE], prev[MovieToLedData::BUFF_SIZE];
 
 	ofFile conv_file[2], m5led_file;
 	char file_name[14];
 	std::string output_dir;
 	uint16_t num_total_frame;
 
-	MovieToLedUtils::OutputData * output_data = nullptr;
-	std::vector<std::string> * completed_file;
-	bool isValid() {
-		return output_data && completed_file;
-	}
-
 	ofFile md_file;
 	std::string md_path;
 	char md_buff[128];
+
+	std::string log_conv_path;
+	uint8_t sound_number;
+	int convert_count, max_convert_count;
 };
 
 #endif
-

@@ -1,30 +1,25 @@
 #include "Extractor.hpp"
+#include "LedLoader.hpp"
+#include "MovieToLedFileUtils.hpp"
+#include "MovieToLedRuntimeState.hpp"
 
-Extractor::Extractor() {
+Extractor::Extractor(MovieToLedData & mtl_data_ref, LedColorCorrection & led_color_correction_ref)
+	: mtl_data(mtl_data_ref)
+	, led_color_correction(led_color_correction_ref) {
 	video_file_name.clear();
 	// video_pixels.allocate(FULL_HD_WIDTH, FULL_HD_HEIGHT, OF_PIXELS_RGB);
 	video_image.allocate(MovieToLedUtils::DisplaySize::FULL_HD_WIDTH, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT, OF_IMAGE_COLOR);
 	frame_mat = cv::Mat(MovieToLedUtils::DisplaySize::FULL_HD_WIDTH, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT, CV_8UC3);
-	num_frame = 0;
+	curr_frame = 0;
 	prev_frame = 0;
 	total_frame = 0;
 	duration_min = 0;
 	duration_sec = 0;
-	memset(buff, 0, MovieToLedUtils::BUFF_SIZE);
-	for (int i = 0; i < 256; i++) {
-		//ガンマ補正
-		//切り上げのために+0.5
-		gamma_table[i] = static_cast<uint8_t>(pow(i / 255.0, gamma) * 255.0 + 0.5);
-	}
+	memset(buff, 0, MovieToLedData::BUFF_SIZE);
 	is_error_frame = false;
 }
 
 Extractor::~Extractor() {
-	output_data = nullptr;
-}
-
-void Extractor::setup(MovieToLedUtils::OutputData * data_ptr) {
-	output_data = data_ptr;
 }
 
 void Extractor::setOutputDir(string path) {
@@ -57,40 +52,60 @@ void Extractor::loadVideo(string path) {
 	}
 }
 
-void Extractor::loadLed(uint8_t scene_num) {
-	if (isValid()) {
-		snprintf(file_name, 18, "/suit_led_s%d.csv", scene_num);
-		char suffix[8];
-		// デバイス数が1の場合、100プロダクトごとに
-		// デバイス数が2以上の場合、10プロダクトごとにLEDのマップデータがある
-		uint8_t product_count = num_device == 1 ? 100 : 10;
-		uint16_t head_id = (start_product_id / product_count) * product_count;
-		while (head_id <= end_product_id) {
-			snprintf(suffix, 8, "%d-%d", head_id, head_id + product_count - 1);
-			string dir_name = MovieToLedUtils::DirPaths::CONTENTS_DIR + "/" + output_data->led_product.getName() + suffix;
-			// LEDのマップ情報を更新
-			output_data->led_product.setLed(dir_name + file_name, head_id, MovieToLedUtils::error_msg);
-			head_id += product_count;
-		}
-		output_data->led_product.setNumLed();
-	}
+void Extractor::clearVideo() {
+	video_capture.release();
+	video_file_name.clear();
+	total_frame = 0;
+	duration_min = 0;
+	duration_sec = 0;
 }
 
-bool Extractor::isExistM5LED(ProductContent & content, uint8_t sound_num) {
-	if (isValid()) {
-		snprintf(file_name, 4, "%02X_", (int)sound_num);
-		string dir_path = output_dir + content.product_name;
-		ofDirectory dir(dir_path);
-		if (!dir.exists()) return false;
-		dir.listDir();
-		for (auto & f : dir.getFiles()) {
-			if (f.isDirectory()) {
-				ofDirectory sub(f.getAbsolutePath());
-				sub.listDir();
-				for (auto file : sub) {
-					if (file.getFileName().find(file_name) != string::npos) {
-						return true;
-					}
+void Extractor::allocate(int w, int h) {
+	video_image.allocate(w, h, OF_IMAGE_COLOR);
+	frame_mat = cv::Mat(w, h, CV_8UC3);
+}
+
+void Extractor::setSoundNumber(uint8_t num) {
+	sound_number = num;
+}
+
+void Extractor::setLoopPlayback(bool loop) {
+	loop_playback = loop;
+}
+
+void Extractor::createLogBlackFile(string path) {
+	log_black_path = path;
+	MovieToLedFileUtils::createFile(log_black_path, false);
+}
+
+void Extractor::createLogSkipFile(string path) {
+	log_skip_path = path;
+	MovieToLedFileUtils::createFile(log_black_path, false);
+}
+
+void Extractor::createLogFrameFile(string path) {
+	log_frame_path = path;
+	MovieToLedFileUtils::createFile(log_black_path, false);
+}
+
+void Extractor::createLogScene(string path) {
+	log_scene_path = path;
+	MovieToLedFileUtils::createFile(log_scene_path, false);
+}
+
+bool Extractor::isExistM5LED(ProductProfile & profile, uint8_t sound_num) {
+	snprintf(file_name, 4, "%02X_", (int)sound_num);
+	string dir_path = output_dir + profile.product_name;
+	ofDirectory dir(dir_path);
+	if (!dir.exists()) return false;
+	dir.listDir();
+	for (auto & f : dir.getFiles()) {
+		if (f.isDirectory()) {
+			ofDirectory sub(f.getAbsolutePath());
+			sub.listDir();
+			for (auto file : sub) {
+				if (file.getFileName().find(file_name) != string::npos) {
+					return true;
 				}
 			}
 		}
@@ -110,37 +125,37 @@ bool Extractor::isCreateDir(char * buff, int buff_size, uint16_t product_id, uin
 	return is_create;
 }
 
-void Extractor::createM5LED(uint8_t sound_num) {
-	if (isValid()) {
-		if (!output_data->output_files.empty()) output_data->output_files.clear();
-		product_name = output_data->led_product.getName();
-		start_product_id = output_data->led_product.getStartProductId();
-		end_product_id = output_data->led_product.getEndProductId();
-		num_device = output_data->led_product.getNumDevice();
-		string dir_path = output_dir + product_name;
-		for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
-			if (isCreateDir(dir_name, 13, product_id, start_product_id)) {
-				// ディレクトリ作成
-				dir_path = output_dir + product_name + dir_name;
-				FileUtils::createDir(dir_path);
-				// 以前のM5LEDファイルを削除
-				char prev_file_name[18];
-				for (uint16_t device_id = 0; device_id < num_device; device_id++) {
-					snprintf(prev_file_name, 18, "/%02X_%03d-%03d.M5LED", sound_num, product_id & 0xff, device_id & 0xff);
-					ofFile prev_file(dir_path + prev_file_name);
-					if (prev_file.exists()) prev_file.remove();
-				}
-			}
-			// M5LEDの生成
-			// ファイル名: SS_PPP-DDD.M5LED
-			// S = Sound Number, P = Product ID, D = Device ID
+void Extractor::createM5LED() {
+	if (!mtl_data.output_files.empty()) {
+		mtl_data.output_files.clear();
+	}
+	product_name = mtl_data.led_product.getName();
+	start_product_id = mtl_data.led_product.getStartProductId();
+	end_product_id = mtl_data.led_product.getEndProductId();
+	num_device = mtl_data.led_product.getNumDevice();
+	string dir_path = output_dir + product_name;
+	for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
+		if (isCreateDir(dir_name, 13, product_id, start_product_id)) {
+			// ディレクトリ作成
+			dir_path = output_dir + product_name + dir_name;
+			MovieToLedFileUtils::createDir(dir_path);
+			// 以前のM5LEDファイルを削除
+			char prev_file_name[18];
 			for (uint16_t device_id = 0; device_id < num_device; device_id++) {
-				snprintf(file_name, 18, "/%02X_%03d-%03d.M5LED", sound_num, product_id & 0xff, device_id & 0xff);
-				FileUtils::createFile(dir_path + file_name);
-				MovieToLedUtils::OutputFiles files;
-				files.M5LED = dir_path + file_name;
-				output_data->output_files.push_back(files);
+				snprintf(prev_file_name, 18, "/%02X_%03d-%03d.M5LED", sound_number, product_id & 0xff, device_id & 0xff);
+				ofFile prev_file(dir_path + prev_file_name);
+				if (prev_file.exists()) prev_file.remove();
 			}
+		}
+		// M5LEDの生成
+		// ファイル名: SS_PPP-DDD.M5LED
+		// S = Sound Number, P = Product ID, D = Device ID
+		for (uint16_t device_id = 0; device_id < num_device; device_id++) {
+			snprintf(file_name, 18, "/%02X_%03d-%03d.M5LED", sound_number, product_id & 0xff, device_id & 0xff);
+			MovieToLedFileUtils::createFile(dir_path + file_name);
+			OutputFiles files;
+			files.M5LED = dir_path + file_name;
+			mtl_data.output_files.push_back(files);
 		}
 	}
 }
@@ -151,7 +166,7 @@ void Extractor::writeM5LED(ofFile & file, string product_name, uint8_t sound_num
 	snprintf(dir_name, 13, "/%05d-%05d", base_id, base_id + 0xff);
 	snprintf(file_name, 18, "/%02X_%03d-%03d.M5LED", sound_num, product_id & 0xff, device_id & 0xff);
 	string path = output_dir + product_name + dir_name + file_name;
-	while (!FileUtils::openFile(file, path, ofFile::Append))
+	while (!MovieToLedFileUtils::openFile(file, path, ofFile::Append))
 		;
 	if (file && file.is_open()) {
 		file.write((const char *)(dat), dat_size);
@@ -160,55 +175,45 @@ void Extractor::writeM5LED(ofFile & file, string product_name, uint8_t sound_num
 }
 
 void Extractor::setHeader(uint16_t product_id, uint16_t device_id) {
-	memset(buff, 0, MovieToLedUtils::BUFF_SIZE);
-	if (isValid()) {
-		buff[0] = 0x4d;
-		buff[1] = 0x35;
-		buff[2] = 3;
-		buff[3] = 30;
-		buff[4] = (total_frame >> 8) & 0xff;
-		buff[5] = total_frame & 0xff;
-		buff[6] = output_data->led_product.getNumLed(device_id, 0);
-		buff[7] = output_data->led_product.getNumLed(device_id, 1);
-		buff[8] = output_data->led_product.getNumLed(device_id, 2);
-		buff[9] = output_data->led_product.getNumLed(device_id, 3);
-		buff[10] = output_data->led_product.getNumLed(device_id, 4);
-		buff[11] = output_data->led_product.getNumLed(device_id, 5);
-		buff[12] = output_data->led_product.getNumLed(device_id, 6);
-		buff[13] = output_data->led_product.getNumLed(device_id, 7);
-		buff[14] = loop_playback ? 1 : 0; //ループするか
-		buff[15] = 0xed;
-	}
+	memset(buff, 0, MovieToLedData::BUFF_SIZE);
+	buff[0] = 0x4d;
+	buff[1] = 0x35;
+	buff[2] = 3;
+	buff[3] = 30;
+	buff[4] = (total_frame >> 8) & 0xff;
+	buff[5] = total_frame & 0xff;
+	buff[6] = mtl_data.led_product.getNumLed(device_id, 0);
+	buff[7] = mtl_data.led_product.getNumLed(device_id, 1);
+	buff[8] = mtl_data.led_product.getNumLed(device_id, 2);
+	buff[9] = mtl_data.led_product.getNumLed(device_id, 3);
+	buff[10] = mtl_data.led_product.getNumLed(device_id, 4);
+	buff[11] = mtl_data.led_product.getNumLed(device_id, 5);
+	buff[12] = mtl_data.led_product.getNumLed(device_id, 6);
+	buff[13] = mtl_data.led_product.getNumLed(device_id, 7);
+	buff[14] = loop_playback ? 1 : 0; //ループするか
+	buff[15] = 0xed;
 }
 
 void Extractor::writeFirstData(uint8_t sound_num) {
-	if (isValid()) {
-		for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
-			for (uint16_t device_id = 0; device_id < num_device; device_id++) {
-				// ヘッダーを入力
-				setHeader(product_id, device_id);
-				writeM5LED(dat_file, product_name, sound_num, product_id, device_id, buff, MovieToLedUtils::BUFF_SIZE);
-				// 最初のフレーム位置にRGB = (0, 0, 0)のデータを入れる
-				memset(buff, 0, MovieToLedUtils::BUFF_SIZE);
-				writeM5LED(dat_file, product_name, sound_num, product_id, device_id, buff, MovieToLedUtils::BUFF_SIZE);
-			}
+	for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
+		for (uint16_t device_id = 0; device_id < num_device; device_id++) {
+			// ヘッダーを入力
+			setHeader(product_id, device_id);
+			writeM5LED(dat_file, product_name, sound_num, product_id, device_id, buff, MovieToLedData::BUFF_SIZE);
+			// 最初のフレーム位置にRGB = (0, 0, 0)のデータを入れる
+			memset(buff, 0, MovieToLedData::BUFF_SIZE);
+			writeM5LED(dat_file, product_name, sound_num, product_id, device_id, buff, MovieToLedData::BUFF_SIZE);
 		}
 	}
 }
 
-void Extractor::correct(uint8_t (&dat)[3], LedType type) {
+void Extractor::applyColorCorrection(uint8_t (&dat)[3], Led::LedType type) {
 	// 各種割合でデータを補正
 	// ゲインの選択
-	uint8_t rgb_gain = (type == LedType::PANEL) ? panel_rgb_gain : led_rgb_gain;
-	uint8_t white_gain = (type == LedType::PANEL) ? panel_white_gain : led_white_gain;
-	uint8_t gain = (dat[0] == dat[1] && dat[1] == dat[2]) ? white_gain : rgb_gain;
-	for (int i = 0; i < 3; i++) {
-		// ゲイン適用
-		dat[i] = (dat[i] * gain) / 100;
-		// ガンマ補正
-		dat[i] = gamma_table[dat[i]];
-		// 最大値250に
-		dat[i] = (dat[i] > 250) ? 250 : dat[i];
+	if (type == Led::LedType::PANEL) {
+		led_color_correction.applyPanelColorCorrection(dat);
+	} else if (type == Led::LedType::NORMAL) {
+		led_color_correction.applyLedColorCorrection(dat);
 	}
 }
 
@@ -216,14 +221,14 @@ void Extractor::logBlack(ofFile & file, string path, bool is_src_blk, bool is_da
 	// 動画データと抽出して補正をかけたデータでR=G=B=0かどうかを調べる
 	// 動画データはR=G=B=0でないが抽出したデータはR=G=B=0の場合、LEDが一瞬光らないことがある(補正の影響あり)
 	if (is_src_blk != is_dat_blk) {
-		FileUtils::openFile(file, path, ofFile::Append, false);
+		MovieToLedFileUtils::openFile(file, path, ofFile::Append, false);
 		char msg[128];
 		if (is_src_blk) {
-			snprintf(msg, 128, "%06d Frame %05d Product %03d Device %03d / Video:Black LED:Color", num_black + 1, num_frame, product_id % 1000, device_id % 1000);
-			snprintf(log_buff, 64, "%d,%d,%d,Video:Black,LED:Color\n", num_frame, product_id, device_id);
+			snprintf(msg, 128, "%06d Frame %05d Product %03d Device %03d / Video:Black LED:Color", num_black + 1, curr_frame, product_id % 1000, device_id % 1000);
+			snprintf(log_buff, 64, "%d,%d,%d,Video:Black,LED:Color\n", curr_frame, product_id, device_id);
 		} else if (is_dat_blk) {
-			snprintf(msg, 128, "%06d Frame %05d Product %03d Device %03d / Video:Color LED:Black", num_black + 1, num_frame, product_id % 1000, device_id % 1000);
-			snprintf(log_buff, 64, "%d,%d,%d,Video:Color,LED:Black\n", num_frame, product_id, device_id);
+			snprintf(msg, 128, "%06d Frame %05d Product %03d Device %03d / Video:Color LED:Black", num_black + 1, curr_frame, product_id % 1000, device_id % 1000);
+			snprintf(log_buff, 64, "%d,%d,%d,Video:Color,LED:Black\n", curr_frame, product_id, device_id);
 		}
 		//snprintf(str, 126, "%06d Frame:%05ld Device:%02d / Data Video:%d LED:%d", black_count + 1, read_frame, device_id, is_raw_black, is_processed_black);
 		log_black_msg[num_black++ % 32] = msg;
@@ -237,7 +242,7 @@ void Extractor::logBlack(ofFile & file, string path, bool is_src_blk, bool is_da
 void Extractor::logSkip(ofFile & file, string path, int cur_pos, int prev_pos) {
 	// 動画のフレームが飛んだかを調べる
 	if (cur_pos >= 0 && prev_pos >= 0 && cur_pos - prev_pos != 1) {
-		FileUtils::openFile(file, path, ofFile::Append, false);
+		MovieToLedFileUtils::openFile(file, path, ofFile::Append, false);
 		char msg[128];
 		snprintf(msg, 128, "%06d Diff %d Frame / %d -> %d\r\n", num_skip + 1, cur_pos - prev_pos, prev_pos, cur_pos);
 		log_skip_msg[num_skip++ % 32] = msg;
@@ -250,7 +255,7 @@ void Extractor::logSkip(ofFile & file, string path, int cur_pos, int prev_pos) {
 }
 
 void Extractor::logFrame(ofFile & file, string path, unsigned int & count, uint16_t frame, bool is_end) {
-	FileUtils::openFile(file, path, ofFile::Append, false);
+	MovieToLedFileUtils::openFile(file, path, ofFile::Append, false);
 	if (!is_end) {
 		snprintf(log_buff, 64, "%d,%d\n", count, frame);
 		count++;
@@ -263,6 +268,12 @@ void Extractor::logFrame(ofFile & file, string path, unsigned int & count, uint1
 	}
 }
 
+void Extractor::ready() {
+	curr_frame = 1;
+	prev_frame = 1;
+	num_count = 1;
+}
+
 bool Extractor::getVideoFrame(int frame, ofImage & img) {
 	if (!video_capture.isOpened()) return false;
 	video_capture.set(cv::CAP_PROP_POS_FRAMES, frame);
@@ -270,13 +281,23 @@ bool Extractor::getVideoFrame(int frame, ofImage & img) {
 	cv::cvtColor(frame_mat, frame_mat, cv::COLOR_BGR2RGB);
 	img.setFromPixels(frame_mat.data, frame_mat.cols, frame_mat.rows, OF_IMAGE_COLOR);
 	// 次に読み込まれるフレーム数を取得
-	num_frame = video_capture.get(cv::CAP_PROP_POS_FRAMES);
+	curr_frame = video_capture.get(cv::CAP_PROP_POS_FRAMES);
 	return true;
 }
 
-void Extractor::updateScene(bool is_first) {
+void Extractor::logScene(uint8_t scene, uint16_t frame) {
+	ofFile file;
+	MovieToLedFileUtils::openFile(file, log_scene_path, ofFile::Append, false);
+	snprintf(log_buff, 64, "%d,%d\n", frame, scene);
+	if (file && file.is_open()) {
+		file.write(log_buff, strlen(log_buff));
+		file.close();
+	}
+}
+
+void Extractor::updateScene(uint16_t frame, bool is_first) {
 	// Sceneをチェック
-	for (int i = 0; i < MovieToLedUtils::MAX_NUM_SCENE; i++) {
+	for (int i = 0; i < MovieToLedData::MAX_NUM_SCENE; i++) {
 		// 指定のy座標のピクセルのポインタを取得
 		cv::Vec3b * src = frame_mat.ptr<cv::Vec3b>(14);
 		// x座標の色([0, 1, 2] = [R, G, B])
@@ -290,73 +311,72 @@ void Extractor::updateScene(bool is_first) {
 	// 最初のScene or Sceneが更新されたらledの座標データをロード
 	if (prev_scene != curr_scene || is_first) {
 		printf("Update Scene %d\r\n", curr_scene);
-		loadLed(curr_scene);
+		LedLoader::loadLed(mtl_data, curr_scene);
+		logScene(curr_scene, frame);
 		prev_scene = curr_scene;
 	}
 }
 
 void Extractor::writeVideoData(uint8_t sound_num) {
-	if (isValid()) {
-		for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
-			for (uint16_t device_id = 0; device_id < num_device; device_id++) {
-				bool is_src_blk = true;
-				bool is_dat_blk = true;
-				for (uint8_t line_id = 0; line_id < LedProduct::Device::MAX_NUM_LINE; line_id++) {
-					for (uint16_t led_id = 0; led_id < LedProduct::Device::MAX_NUM_LED; led_id++) {
-						const Led * led = output_data->led_product.getLed(product_id, device_id, line_id & 0xff, led_id & 0xff);
-						if (led->x >= 0 && led->y >= 0) {
-							cv::Vec3b * src = frame_mat.ptr<cv::Vec3b>(led->y);
-							if (is_src_blk && !(src[led->x][0] == 0 && src[led->x][1] == 0 && src[led->x][2] == 0)) {
-								is_src_blk = false;
-							}
-							// 処理用の配列に値をコピー
-							uint8_t dat[3];
-							memcpy(dat, &src[led->x], 3);
-							// RとGを入れ替え
-							// 5VのLEDはデータ順がGRB, 12VのLEDはRGB
-							if (use_led_5V) swap(dat[0], dat[1]);
-							// データの補正
-							correct(dat, led->type);
-							if (is_dat_blk && !(dat[0] == 0 && dat[1] == 0 && dat[2] == 0)) {
-								is_dat_blk = false;
-							}
-							// bufferにコピー
-							memcpy(&buff[LedProduct::Device::MAX_NUM_LED * 3 * line_id + led_id * 3], dat, 3);
-						} else {
-							memset(&buff[LedProduct::Device::MAX_NUM_LED * 3 * line_id + led_id * 3], 0, 3);
+	for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
+		for (uint16_t device_id = 0; device_id < num_device; device_id++) {
+			bool is_src_blk = true;
+			bool is_dat_blk = true;
+			for (uint8_t line_id = 0; line_id < LedProduct::Device::MAX_NUM_LINE; line_id++) {
+				for (uint16_t led_id = 0; led_id < LedProduct::Device::MAX_NUM_LED; led_id++) {
+					const Led * led = mtl_data.led_product.getLed(product_id, device_id, line_id & 0xff, led_id & 0xff);
+					if (led->x >= 0 && led->y >= 0) {
+						cv::Vec3b * src = frame_mat.ptr<cv::Vec3b>(led->y);
+						if (is_src_blk && !(src[led->x][0] == 0 && src[led->x][1] == 0 && src[led->x][2] == 0)) {
+							is_src_blk = false;
 						}
+						// 処理用の配列に値をコピー
+						uint8_t dat[3];
+						memcpy(dat, &src[led->x], 3);
+						// RとGを入れ替え
+						// 5VのLEDはデータ順がGRB, 12VのLEDはRGB
+						if (use_led_5V) swap(dat[0], dat[1]);
+						// データの補正
+						applyColorCorrection(dat, led->type);
+						if (is_dat_blk && !(dat[0] == 0 && dat[1] == 0 && dat[2] == 0)) {
+							is_dat_blk = false;
+						}
+						// bufferにコピー
+						memcpy(&buff[LedProduct::Device::MAX_NUM_LED * 3 * line_id + led_id * 3], dat, 3);
+					} else {
+						memset(&buff[LedProduct::Device::MAX_NUM_LED * 3 * line_id + led_id * 3], 0, 3);
 					}
 				}
-				// 1デバイス分のデータを出力
-				writeM5LED(dat_file, output_data->led_product.getName(), sound_num, product_id, device_id, buff, MovieToLedUtils::BUFF_SIZE);
-				memset(buff, 0, MovieToLedUtils::BUFF_SIZE);
-				logBlack(log_file, log_black_path, is_src_blk, is_dat_blk, product_id, device_id);
 			}
+			// 1デバイス分のデータを出力
+			writeM5LED(dat_file, mtl_data.led_product.getName(), sound_num, product_id, device_id, buff, MovieToLedData::BUFF_SIZE);
+			memset(buff, 0, MovieToLedData::BUFF_SIZE);
+			logBlack(log_file, log_black_path, is_src_blk, is_dat_blk, product_id, device_id);
 		}
 	}
 }
 
 void Extractor::extract() {
 	//if (num_frame < 0 || !video_player.isLoaded()) return;
-	if (isValid() && video_capture.isOpened()) {
-		if (num_frame == 1 && prev_frame == 1) {
+	if (video_capture.isOpened()) {
+		if (curr_frame == 1 && prev_frame == 1) {
 			// 開始時
 			printf("1st Frame\r\n");
 			// Sceneを更新.最初のSceneのLEDデータをロード
-			updateScene(true);
-			output_data->led_product.setNumLed();
+			updateScene(curr_frame, true);
+			mtl_data.led_product.setNumLed();
 			writeFirstData(sound_number);
 			// 最初のフレームはRGB=0のデータになるから動画データは出力しない
 			// 動画の最初のフレームのLEDデータを出力
 			// writeVideoData();
-			logFrame(log_file, log_frame_path, num_count, num_frame);
+			logFrame(log_file, log_frame_path, num_count, curr_frame);
 			// printf("num frame = %d / prev frame = %d\r\n", num_frame, prev_frame);
 		}
 
-		if (num_frame < total_frame) {
+		if (curr_frame < total_frame) {
 			// Update Video Frame
-			if (getVideoFrame(num_frame, video_image)) {
-				if (num_frame - prev_frame != 1 && (num_frame > 1 && prev_frame > 1)) {
+			if (getVideoFrame(curr_frame, video_image)) {
+				if (curr_frame - prev_frame != 1 && (curr_frame > 1 && prev_frame > 1)) {
 					while (!getVideoFrame(prev_frame - 1, video_image)) {
 						ofSleepMillis(1);
 					}
@@ -395,25 +415,25 @@ void Extractor::extract() {
 		//			frame_mat = cv::Mat(video_pixels.getHeight(), video_pixels.getWidth(), CV_8UC3, video_pixels.getData());
 		//			video_image.setFromPixels(frame_mat.data, frame_mat.cols, frame_mat.rows, OF_IMAGE_COLOR);
 		//		}
-		updateScene();
+		updateScene(curr_frame);
 		writeVideoData(sound_number);
-		logSkip(log_file, log_skip_path, num_frame, prev_frame);
-		prev_frame = num_frame;
-		logFrame(log_file, log_frame_path, num_count, num_frame);
+		logSkip(log_file, log_skip_path, curr_frame, prev_frame);
+		prev_frame = curr_frame;
+		logFrame(log_file, log_frame_path, num_count, curr_frame);
 		// 動画が最後のフレームかチェック
-		if (num_frame >= total_frame - 1) {
+		if (curr_frame >= total_frame - 1) {
 			// 動画が最後のフレームの場合
 			// 最後にRGB = (0, 0, 0)のデータを入れる
-			memset(buff, 0, MovieToLedUtils::BUFF_SIZE);
+			memset(buff, 0, MovieToLedData::BUFF_SIZE);
 			for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
 				for (uint16_t device_id = 0; device_id < num_device; device_id++) {
-					writeM5LED(dat_file, product_name, sound_number, product_id, device_id, buff, MovieToLedUtils::BUFF_SIZE);
+					writeM5LED(dat_file, product_name, sound_number, product_id, device_id, buff, MovieToLedData::BUFF_SIZE);
 					ofSleepMillis(1);
 					// ファイルを閉じる
 					snprintf(dir_name, 13, "/%05d-%05d", (product_id >> 8) << 8, ((product_id >> 8) << 8) + 0xff);
 					snprintf(file_name, 18, "/%02X_%03d-%03d.M5LED", sound_number, product_id & 0xff, device_id & 0xff);
 					string path = output_dir + product_name + dir_name + file_name;
-					while (!FileUtils::openFile(dat_file, path, ofFile::ReadOnly))
+					while (!MovieToLedFileUtils::openFile(dat_file, path, ofFile::ReadOnly))
 						;
 					// if (dat_file && dat_file.is_open()) {
 					// 	printf("Completed File:%s Size:%llu byte = %llu Frame\r\n", dat_file.getFileName().c_str(), dat_file.getSize(), dat_file.getSize() / BUFF_SIZE);
@@ -428,7 +448,7 @@ void Extractor::extract() {
 			// video_player.update();
 			// num_frame = video_player.getCurrentFrame();
 			getVideoFrame(0, video_image);
-			num_frame = 1;
+			curr_frame = 1;
 			prev_frame = 1;
 			num_count = 1;
 			logFrame(log_file, log_frame_path, num_count, total_frame, true);
@@ -438,3 +458,9 @@ void Extractor::extract() {
 	}
 }
 
+void Extractor::drawLogSkip(int x, int y) {
+	for (int i = 0; i < 32; i++) {
+		// ofDrawBitmapString(log_black_msg[i], display_width - 520, display_height - 10 - 15 * i);
+		ofDrawBitmapString(log_skip_msg[i], x, y - 15 * i);
+	}
+}

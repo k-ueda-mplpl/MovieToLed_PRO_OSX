@@ -1,7 +1,8 @@
 #ifndef M5LED_METADATA_HPP
 #define M5LED_METADATA_HPP
 
-#include "MovieToLedUtils.hpp"
+#include <cstdint>
+#include <string>
 
 struct METADATA {
 	uint8_t sound_number;
@@ -23,4 +24,3 @@ private:
 };
 
 #endif
-

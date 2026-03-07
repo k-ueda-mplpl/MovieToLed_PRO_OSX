@@ -1,0 +1,25 @@
+気になる点（機能/責務のズレやバグになりそうな箇所）
+
+1. SettingManager::saveLastProject() の保存先が間違っている
+- loadLastProject() は LAST_PROJECT_JSON を読むが、saveLastProject() は PRODUCT_SETTING_JSON に書いている。
+- これだと保存した内容を次回読み込めない。
+
+2. ProjectLoader::loadProject() の path の意味が曖昧
+- loadNewFormationData() は JSONファイルのパスを想定しているが、MovieToLed::load() からはディレクトリパスが渡されている。
+- 新フォーマット読み込みが失敗する可能性が高い。
+
+3. 旧フォーマットの path も噛み合っていない
+- loadOldFormationData() は 1_MtL_Contents.conf のパスを想定しているが、ProjectManager::getActiveProjectPath() はディレクトリパスを返している。
+- 旧フォーマットでも読み込み失敗の可能性がある。
+
+4. ProductConfig と ProjectLoader の責務が一部重複
+- ProductConfig::verify() と ProjectLoader::verifyProductConfig() が両方存在。
+- MovieToLed 内で両方使われる可能性があり、どちらが正なのかが曖昧になる。
+
+5. MtLStates::Preprocess::config_all_exist の更新が不安定
+- ProductConfig::verify() は更新するが、ProjectLoader::verifyProductConfig() は更新しない。
+- フローによって config_all_exist の値が不正確になる可能性がある。
+
+6. MovieToLed::load() に旧処理が残っている
+- ProjectLoader::loadProject() を使い始めているが、旧 load() 実装（MtL_Contents 読み込み）が残っている。
+- 二重処理や混乱の原因になる。

@@ -1,0 +1,19 @@
+{
+   "Product Setting" : [
+      {
+         "01 Product Name" : "16X16PANELX8",
+         "02 Number of Products" : 6,
+         "03 Number of Devices" : 1,
+         "04 Device Type" : "8Line",
+         "05 Start Product ID" : 0,
+         "06 End Product ID" : 5,
+         "07 Data Generation" : true,
+         "08 BIN Output" : {
+            "4Line" : false,
+            "8Line" : false
+         },
+         "09 ID Format" : "DEC"
+      }
+   ]
+}
+

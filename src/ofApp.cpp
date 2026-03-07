@@ -75,6 +75,5 @@ void ofApp::gotMessage(ofMessage msg) {
 
 //--------------------------------------------------------------
 void ofApp::dragEvent(ofDragInfo dragInfo) {
-	// MtL.dragVideoFile(dragInfo);
 	MtL.dragEvent(dragInfo);
 }

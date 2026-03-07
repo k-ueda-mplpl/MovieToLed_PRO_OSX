@@ -1,22 +1,21 @@
 #include "Converter.hpp"
-
-Converter::Converter() {
-}
+#include "MovieToLedFileUtils.hpp"
+#include "MovieToLedRuntimeState.hpp"
+#include "MovieToLedUtils.hpp"
 
 Converter::~Converter() {
-	output_data = nullptr;
-}
-
-void Converter::setup(MovieToLedUtils::OutputData * data_ptr, std::vector<std::string> * completed_file_ptr) {
-	output_data = data_ptr;
-	completed_file = completed_file_ptr;
+	completed_file.clear();
 }
 
 void Converter::setOutputDir(std::string path) {
 	output_dir = path;
 }
 
-bool Converter::isCreateDir(char * buff, int buff_size, uint16_t product_id, uint8_t device_id, DeviceIdFormat id_format, uint16_t start_product_id, uint16_t max_product_count) {
+void Converter::setSoundNumber(uint8_t num) {
+	sound_number = num;
+}
+
+bool Converter::isCreateDir(char * buff, int buff_size, uint16_t product_id, uint8_t device_id, ProductProfile::DeviceIdFormat id_format, uint16_t start_product_id, uint16_t max_product_count) {
 	// ディレクトリの作成タイミングとディレクトリ名を決定
 	bool is_create = false;
 	if (max_product_count > 0) {
@@ -26,19 +25,19 @@ bool Converter::isCreateDir(char * buff, int buff_size, uint16_t product_id, uin
 		is_create = device_id == 0 && (product_id == start_product_id || product_id % max_product_count == 0);
 		if (is_create) {
 			uint16_t head_id = (product_id / max_product_count) * max_product_count;
-			if (id_format == DeviceIdFormat::DEC) {
+			if (id_format == ProductProfile::DeviceIdFormat::DEC) {
 				snprintf(buff, buff_size, "/%03d-%03d-DEC", head_id, head_id + max_product_count - 1);
-			} else if (id_format == DeviceIdFormat::HEX) {
+			} else if (id_format == ProductProfile::DeviceIdFormat::HEX) {
 				snprintf(buff, buff_size, "/%03X-%03X-HEX", head_id, head_id + max_product_count - 1);
 			}
 		}
 	} else {
 		// 1プロダクトがBINの範囲を超えるとき
 		// デバイスが256 or 100台ごとにディレクトリを作成
-		uint16_t max_device_count = id_format == DeviceIdFormat::HEX ? 256 : 100;
+		uint16_t max_device_count = id_format == ProductProfile::DeviceIdFormat::HEX ? 256 : 100;
 		is_create = device_id % max_device_count == 0;
 		if (is_create) {
-			if (id_format == DeviceIdFormat::DEC) {
+			if (id_format == ProductProfile::DeviceIdFormat::DEC) {
 				snprintf(buff, buff_size, "/%03X-%03X-HEX", product_id, device_id);
 			} else {
 				snprintf(buff, buff_size, "/%03d-%03d-DEC", product_id, device_id);
@@ -48,23 +47,23 @@ bool Converter::isCreateDir(char * buff, int buff_size, uint16_t product_id, uin
 	return is_create;
 }
 
-void Converter::setBINName(char * buff, int buff_size, uint8_t sound_num, uint16_t product_id, uint16_t device_id, DeviceIdFormat id_format, uint16_t block_size, uint16_t max_product_count) {
+void Converter::setBINName(char * buff, int buff_size, uint8_t sound_num, uint16_t product_id, uint16_t device_id, ProductProfile::DeviceIdFormat id_format, uint16_t block_size, uint16_t max_product_count) {
 	if (max_product_count > 0) {
 		// 1プロダクトがBINの範囲に収まるとき
 		uint8_t bin_id = (product_id % max_product_count) * block_size + device_id;
-		if (id_format == DeviceIdFormat::DEC) {
+		if (id_format == ProductProfile::DeviceIdFormat::DEC) {
 			snprintf(buff, buff_size, "/%05X_%02d.BIN", sound_num, bin_id);
-		} else if (id_format == DeviceIdFormat::HEX) {
+		} else if (id_format == ProductProfile::DeviceIdFormat::HEX) {
 			snprintf(buff, buff_size, "/%05X_%02X.BIN", sound_num, bin_id);
 		}
 	} else {
 		// 1プロダクトがBINの範囲を超えるとき
-		uint16_t max_device_count = id_format == DeviceIdFormat::HEX ? 256 : 100;
+		uint16_t max_device_count = id_format == ProductProfile::DeviceIdFormat::HEX ? 256 : 100;
 		snprintf(buff, buff_size, "/%05X_%02X.BIN", sound_num, device_id % max_device_count);
 	}
 }
 
-void Converter::removePreviousBIN(std::string dir_path, uint8_t sound_num, uint16_t product_id, uint16_t num_device, DeviceIdFormat id_format, uint16_t block_size, uint16_t max_product_count) {
+void Converter::removePreviousBIN(std::string dir_path, uint8_t sound_num, uint16_t product_id, uint16_t num_device, ProductProfile::DeviceIdFormat id_format, uint16_t block_size, uint16_t max_product_count) {
 	char prev_file_name[14];
 	for (uint16_t device_id = 0; device_id < num_device; device_id++) {
 		setBINName(prev_file_name, 14, sound_num, product_id, device_id, id_format, block_size, max_product_count);
@@ -74,45 +73,43 @@ void Converter::removePreviousBIN(std::string dir_path, uint8_t sound_num, uint1
 }
 
 void Converter::createBIN8LINE(std::string parent_path, uint8_t sound_num) {
-	if (isValid()) {
-		// 8ラインデバイスと1000FPSデバイスのディレクトリを作成
-		FileUtils::createDir(parent_path + MovieToLedUtils::BinDirPahts::DEVICE_8LINE_DIR);
-		FileUtils::createDir(parent_path + MovieToLedUtils::BinDirPahts::DEVICE_1000FPS_DIR);
-		std::string dir_8LINE, dir_1000FPS;
-		uint16_t start_product_id = output_data->led_product.getStartProductId();
-		uint16_t end_product_id = output_data->led_product.getEndProductId();
-		uint16_t num_device = output_data->led_product.getNumDevice();
-		DeviceIdFormat id_format = output_data->led_product.getDeviceIdFormat();
-		// ブロックサイズ: 1プロダクトが消費するBIN名の数
-		uint16_t block_size = getBlockSize(num_device, id_format);
-		// プロダクト収容数: 同じディレクトリに入れられるBINのプロダクト数
-		uint16_t max_product_count = getMaxProductCount(num_device, id_format);
-		char child_dir_name[13];
-		for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
-			for (uint16_t device_id = 0; device_id < num_device; device_id++) {
-				if (isCreateDir(child_dir_name, 13, product_id, device_id, id_format, start_product_id, max_product_count)) {
-					// ディレクトリの作成
-					dir_8LINE = parent_path + MovieToLedUtils::BinDirPahts::DEVICE_8LINE_DIR + child_dir_name;
-					dir_1000FPS = parent_path + MovieToLedUtils::BinDirPahts::DEVICE_1000FPS_DIR + child_dir_name;
-					FileUtils::createDir(dir_8LINE);
-					FileUtils::createDir(dir_1000FPS);
-					// 以前のBINファイルの削除
-					removePreviousBIN(dir_8LINE, product_id, sound_num, num_device, id_format, block_size, max_product_count);
-					removePreviousBIN(dir_1000FPS, product_id, sound_num, num_device, id_format, block_size, max_product_count);
-				}
-				// BINファイルの生成
-				setBINName(file_name, 14, sound_num, product_id, device_id, id_format, block_size, max_product_count);
-				FileUtils::createFile(dir_8LINE + file_name);
-				FileUtils::createFile(dir_1000FPS + file_name);
-				// 対応したグループにパスを登録
-				for (MovieToLedUtils::OutputFiles & files : output_data->output_files) {
-					if (files.M5LED.find(output_data->led_product.getName()) != std::string::npos) {
-						char m5led[29];
-						snprintf(m5led, 29, "%05d-%05d/%02X_%03d-%03d.M5LED", (product_id >> 8) << 8, ((product_id >> 8) << 8) + 0xff, sound_num, product_id & 0xff, device_id & 0xff);
-						if (files.M5LED.find(m5led) != std::string::npos) {
-							files.BIN_DEVICE_8LINE = dir_8LINE + file_name;
-							files.BIN_DEVICE_1000FPS = dir_1000FPS + file_name;
-						}
+	// 8ラインデバイスと1000FPSデバイスのディレクトリを作成
+	MovieToLedFileUtils::createDir(parent_path + MovieToLedUtils::BinDirPaths::DEVICE_8LINE_DIR);
+	MovieToLedFileUtils::createDir(parent_path + MovieToLedUtils::BinDirPaths::DEVICE_1000FPS_DIR);
+	std::string dir_8LINE, dir_1000FPS;
+	uint16_t start_product_id = mtl_data.led_product.getStartProductId();
+	uint16_t end_product_id = mtl_data.led_product.getEndProductId();
+	uint16_t num_device = mtl_data.led_product.getNumDevice();
+	ProductProfile::DeviceIdFormat id_format = mtl_data.led_product.getDeviceIdFormat();
+	// ブロックサイズ: 1プロダクトが消費するBIN名の数
+	uint16_t block_size = getBlockSize(num_device, id_format);
+	// プロダクト収容数: 同じディレクトリに入れられるBINのプロダクト数
+	uint16_t max_product_count = getMaxProductCount(num_device, id_format);
+	char child_dir_name[13];
+	for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
+		for (uint16_t device_id = 0; device_id < num_device; device_id++) {
+			if (isCreateDir(child_dir_name, 13, product_id, device_id, id_format, start_product_id, max_product_count)) {
+				// ディレクトリの作成
+				dir_8LINE = parent_path + MovieToLedUtils::BinDirPaths::DEVICE_8LINE_DIR + child_dir_name;
+				dir_1000FPS = parent_path + MovieToLedUtils::BinDirPaths::DEVICE_1000FPS_DIR + child_dir_name;
+				MovieToLedFileUtils::createDir(dir_8LINE);
+				MovieToLedFileUtils::createDir(dir_1000FPS);
+				// 以前のBINファイルの削除
+				removePreviousBIN(dir_8LINE, product_id, sound_num, num_device, id_format, block_size, max_product_count);
+				removePreviousBIN(dir_1000FPS, product_id, sound_num, num_device, id_format, block_size, max_product_count);
+			}
+			// BINファイルの生成
+			setBINName(file_name, 14, sound_num, product_id, device_id, id_format, block_size, max_product_count);
+			MovieToLedFileUtils::createFile(dir_8LINE + file_name);
+			MovieToLedFileUtils::createFile(dir_1000FPS + file_name);
+			// 対応したグループにパスを登録
+			for (OutputFiles & files : mtl_data.output_files) {
+				if (files.M5LED.find(mtl_data.led_product.getName()) != std::string::npos) {
+					char m5led[29];
+					snprintf(m5led, 29, "%05d-%05d/%02X_%03d-%03d.M5LED", (product_id >> 8) << 8, ((product_id >> 8) << 8) + 0xff, sound_num, product_id & 0xff, device_id & 0xff);
+					if (files.M5LED.find(m5led) != std::string::npos) {
+						files.BIN_DEVICE_8LINE = dir_8LINE + file_name;
+						files.BIN_DEVICE_1000FPS = dir_1000FPS + file_name;
 					}
 				}
 			}
@@ -121,45 +118,43 @@ void Converter::createBIN8LINE(std::string parent_path, uint8_t sound_num) {
 }
 
 void Converter::createBIN4LINE(std::string parent_path, uint8_t sound_num) {
-	if (isValid()) {
-		// 4ラインデバイスのディレクトリを作成
-		FileUtils::createDir(parent_path + MovieToLedUtils::BinDirPahts::DEVICE_4LINE_ABCD_DIR);
-		FileUtils::createDir(parent_path + MovieToLedUtils::BinDirPahts::DEVICE_4LINE_EFGH_DIR);
-		std::string dir_4LINE[2];
-		uint16_t start_product_id = output_data->led_product.getStartProductId();
-		uint16_t end_product_id = output_data->led_product.getEndProductId();
-		uint16_t num_device = output_data->led_product.getNumDevice();
-		DeviceIdFormat id_format = output_data->led_product.getDeviceIdFormat();
-		// ブロックサイズ: 1プロダクトが消費するBIN名の数
-		uint16_t block_size = getBlockSize(num_device, id_format);
-		// プロダクト収容数: 同じディレクトリに入れられるBINのプロダクト数
-		uint16_t max_product_count = getMaxProductCount(num_device, id_format);
-		char child_dir_name[13];
-		for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
-			for (uint16_t device_id = 0; device_id < num_device; device_id++) {
-				if (isCreateDir(child_dir_name, 13, product_id, device_id, id_format, start_product_id, max_product_count)) {
-					// ディレクトリの作成
-					dir_4LINE[0] = parent_path + MovieToLedUtils::BinDirPahts::DEVICE_4LINE_ABCD_DIR + child_dir_name;
-					dir_4LINE[1] = parent_path + MovieToLedUtils::BinDirPahts::DEVICE_4LINE_EFGH_DIR + child_dir_name;
-					FileUtils::createDir(dir_4LINE[0]);
-					FileUtils::createDir(dir_4LINE[1]);
-					// 以前のBINファイルの削除
-					removePreviousBIN(dir_4LINE[0], product_id, sound_num, num_device, id_format, block_size, max_product_count);
-					removePreviousBIN(dir_4LINE[1], product_id, sound_num, num_device, id_format, block_size, max_product_count);
-				}
-				// BINファイルの生成
-				setBINName(file_name, 14, sound_num, product_id, device_id, id_format, block_size, max_product_count);
-				FileUtils::createFile(dir_4LINE[0] + file_name);
-				FileUtils::createFile(dir_4LINE[1] + file_name);
-				// 対応したグループにパスを登録
-				for (MovieToLedUtils::OutputFiles & files : output_data->output_files) {
-					if (files.M5LED.find(output_data->led_product.getName()) != std::string::npos) {
-						char m5led[29];
-						snprintf(m5led, 29, "%05d-%05d/%02X_%03d-%03d.M5LED", (product_id >> 8) << 8, ((product_id >> 8) << 8) + 0xff, sound_num, product_id & 0xff, device_id & 0xff);
-						if (files.M5LED.find(m5led) != std::string::npos) {
-							files.BIN_DEVICE_4LINE_ABCD = dir_4LINE[0] + file_name;
-							files.BIN_DEVICE_4LINE_EFGH = dir_4LINE[1] + file_name;
-						}
+	// 4ラインデバイスのディレクトリを作成
+	MovieToLedFileUtils::createDir(parent_path + MovieToLedUtils::BinDirPaths::DEVICE_4LINE_ABCD_DIR);
+	MovieToLedFileUtils::createDir(parent_path + MovieToLedUtils::BinDirPaths::DEVICE_4LINE_EFGH_DIR);
+	std::string dir_4LINE[2];
+	uint16_t start_product_id = mtl_data.led_product.getStartProductId();
+	uint16_t end_product_id = mtl_data.led_product.getEndProductId();
+	uint16_t num_device = mtl_data.led_product.getNumDevice();
+	ProductProfile::DeviceIdFormat id_format = mtl_data.led_product.getDeviceIdFormat();
+	// ブロックサイズ: 1プロダクトが消費するBIN名の数
+	uint16_t block_size = getBlockSize(num_device, id_format);
+	// プロダクト収容数: 同じディレクトリに入れられるBINのプロダクト数
+	uint16_t max_product_count = getMaxProductCount(num_device, id_format);
+	char child_dir_name[13];
+	for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
+		for (uint16_t device_id = 0; device_id < num_device; device_id++) {
+			if (isCreateDir(child_dir_name, 13, product_id, device_id, id_format, start_product_id, max_product_count)) {
+				// ディレクトリの作成
+				dir_4LINE[0] = parent_path + MovieToLedUtils::BinDirPaths::DEVICE_4LINE_ABCD_DIR + child_dir_name;
+				dir_4LINE[1] = parent_path + MovieToLedUtils::BinDirPaths::DEVICE_4LINE_EFGH_DIR + child_dir_name;
+				MovieToLedFileUtils::createDir(dir_4LINE[0]);
+				MovieToLedFileUtils::createDir(dir_4LINE[1]);
+				// 以前のBINファイルの削除
+				removePreviousBIN(dir_4LINE[0], product_id, sound_num, num_device, id_format, block_size, max_product_count);
+				removePreviousBIN(dir_4LINE[1], product_id, sound_num, num_device, id_format, block_size, max_product_count);
+			}
+			// BINファイルの生成
+			setBINName(file_name, 14, sound_num, product_id, device_id, id_format, block_size, max_product_count);
+			MovieToLedFileUtils::createFile(dir_4LINE[0] + file_name);
+			MovieToLedFileUtils::createFile(dir_4LINE[1] + file_name);
+			// 対応したグループにパスを登録
+			for (OutputFiles & files : mtl_data.output_files) {
+				if (files.M5LED.find(mtl_data.led_product.getName()) != std::string::npos) {
+					char m5led[29];
+					snprintf(m5led, 29, "%05d-%05d/%02X_%03d-%03d.M5LED", (product_id >> 8) << 8, ((product_id >> 8) << 8) + 0xff, sound_num, product_id & 0xff, device_id & 0xff);
+					if (files.M5LED.find(m5led) != std::string::npos) {
+						files.BIN_DEVICE_4LINE_ABCD = dir_4LINE[0] + file_name;
+						files.BIN_DEVICE_4LINE_EFGH = dir_4LINE[1] + file_name;
 					}
 				}
 			}
@@ -168,68 +163,62 @@ void Converter::createBIN4LINE(std::string parent_path, uint8_t sound_num) {
 }
 
 void Converter::setHeader8LINE(ofFile & file, uint8_t * buff, int buf_size, uint16_t num_frame, uint16_t device_id) {
-	if (isValid()) {
-		memset(buff, 0, buf_size);
-		buff[0] = 3; // 256 x n x 8 (n = 3 -> RGB)
-		buff[1] = 3;
-		buff[2] = 30; // FPS
-		buff[3] = 30;
-		buff[4] = 1;
-		buff[5] = 1;
-		buff[6] = 1;
-		buff[7] = 1;
-		buff[10] = 1; // format = 1
-		buff[11] = 1;
-		buff[12] = (num_frame >> 8) & 0xff; // Frame Duration High
-		buff[13] = (num_frame >> 8) & 0xff;
-		buff[14] = num_frame & 0xff; // Frame Duration Low
-		buff[15] = num_frame & 0xff;
-		buff[16] = output_data->led_product.getNumLed(device_id, 0); // led
-		buff[17] = output_data->led_product.getNumLed(device_id, 1);
-		buff[18] = output_data->led_product.getNumLed(device_id, 2);
-		buff[19] = output_data->led_product.getNumLed(device_id, 3);
-		buff[20] = output_data->led_product.getNumLed(device_id, 4);
-		buff[21] = output_data->led_product.getNumLed(device_id, 5);
-		buff[22] = output_data->led_product.getNumLed(device_id, 6);
-		buff[23] = output_data->led_product.getNumLed(device_id, 7);
-		file.write((const char *)(buff), buf_size);
-	}
+	memset(buff, 0, buf_size);
+	buff[0] = 3; // 256 x n x 8 (n = 3 -> RGB)
+	buff[1] = 3;
+	buff[2] = 30; // FPS
+	buff[3] = 30;
+	buff[4] = 1;
+	buff[5] = 1;
+	buff[6] = 1;
+	buff[7] = 1;
+	buff[10] = 1; // format = 1
+	buff[11] = 1;
+	buff[12] = (num_frame >> 8) & 0xff; // Frame Duration High
+	buff[13] = (num_frame >> 8) & 0xff;
+	buff[14] = num_frame & 0xff; // Frame Duration Low
+	buff[15] = num_frame & 0xff;
+	buff[16] = mtl_data.led_product.getNumLed(device_id, 0); // led
+	buff[17] = mtl_data.led_product.getNumLed(device_id, 1);
+	buff[18] = mtl_data.led_product.getNumLed(device_id, 2);
+	buff[19] = mtl_data.led_product.getNumLed(device_id, 3);
+	buff[20] = mtl_data.led_product.getNumLed(device_id, 4);
+	buff[21] = mtl_data.led_product.getNumLed(device_id, 5);
+	buff[22] = mtl_data.led_product.getNumLed(device_id, 6);
+	buff[23] = mtl_data.led_product.getNumLed(device_id, 7);
+	file.write((const char *)(buff), buf_size);
 }
 
 void Converter::setHeader4LINE_ABCD(ofFile & file, uint8_t * buff, int buf_size, uint16_t num_frame, uint16_t device_id) {
-	if (isValid()) {
-		memset(buff, 0, buf_size);
-		buff[0] = 3; // 256 x n x 8 (n = 3 -> RGB)
-		buff[1] = 30; // FPS
-		buff[2] = 1;
-		buff[3] = 1;
-		buff[4] = 1; // format = 1
-		buff[5] = (num_frame >> 8) & 0xff; // Frame Duration High
-		buff[6] = num_frame & 0xff; // Frame Duration Low
-		buff[7] = output_data->led_product.getNumLed(device_id, 0); // led
-		buff[8] = output_data->led_product.getNumLed(device_id, 1);
-		buff[9] = output_data->led_product.getNumLed(device_id, 2);
-		buff[10] = output_data->led_product.getNumLed(device_id, 3);
-		file.write((const char *)(buff), buf_size);
-	}
+	memset(buff, 0, buf_size);
+	buff[0] = 3; // 256 x n x 8 (n = 3 -> RGB)
+	buff[1] = 30; // FPS
+	buff[2] = 1;
+	buff[3] = 1;
+	buff[4] = 1; // format = 1
+	buff[5] = (num_frame >> 8) & 0xff; // Frame Duration High
+	buff[6] = num_frame & 0xff; // Frame Duration Low
+	buff[7] = mtl_data.led_product.getNumLed(device_id, 0); // led
+	buff[8] = mtl_data.led_product.getNumLed(device_id, 1);
+	buff[9] = mtl_data.led_product.getNumLed(device_id, 2);
+	buff[10] = mtl_data.led_product.getNumLed(device_id, 3);
+	file.write((const char *)(buff), buf_size);
 }
 
 void Converter::setHeader4LINE_EFGH(ofFile & file, uint8_t * buff, int buf_size, uint16_t num_frame, uint16_t device_id) {
-	if (isValid()) {
-		memset(buff, 0, buf_size);
-		buff[0] = 3; // 256 x n x 8 (n = 3 -> RGB)
-		buff[1] = 30; // FPS
-		buff[2] = 1;
-		buff[3] = 1;
-		buff[4] = 1; // format = 1
-		buff[5] = ((num_frame + 1) >> 8) & 0xff; // Frame Duration High
-		buff[6] = (num_frame + 1) & 0xff; // Frame Duration Low
-		buff[7] = output_data->led_product.getNumLed(device_id, 4); // led
-		buff[8] = output_data->led_product.getNumLed(device_id, 5);
-		buff[9] = output_data->led_product.getNumLed(device_id, 6);
-		buff[10] = output_data->led_product.getNumLed(device_id, 7);
-		file.write((const char *)(buff), buf_size);
-	}
+	memset(buff, 0, buf_size);
+	buff[0] = 3; // 256 x n x 8 (n = 3 -> RGB)
+	buff[1] = 30; // FPS
+	buff[2] = 1;
+	buff[3] = 1;
+	buff[4] = 1; // format = 1
+	buff[5] = ((num_frame + 1) >> 8) & 0xff; // Frame Duration High
+	buff[6] = (num_frame + 1) & 0xff; // Frame Duration Low
+	buff[7] = mtl_data.led_product.getNumLed(device_id, 4); // led
+	buff[8] = mtl_data.led_product.getNumLed(device_id, 5);
+	buff[9] = mtl_data.led_product.getNumLed(device_id, 6);
+	buff[10] = mtl_data.led_product.getNumLed(device_id, 7);
+	file.write((const char *)(buff), buf_size);
 }
 
 void Converter::regulatorOn(uint8_t * buff, uint8_t num_line) {
@@ -245,7 +234,7 @@ bool Converter::isBlack(uint8_t * buff, uint8_t num_led, int buff_size) {
 
 void Converter::convertRGB8LINE(uint8_t * src_dat, uint8_t * dst_buff) {
 	// BINデータ変換
-	unsigned char r[LedProduct::Device::MAX_NUM_LINE], g[LedProduct::Device::MAX_NUM_LINE], b[LedProduct::Device::MAX_NUM_LINE]; //LED1個のRGB8ライン分
+	uint8_t r[LedProduct::Device::MAX_NUM_LINE], g[LedProduct::Device::MAX_NUM_LINE], b[LedProduct::Device::MAX_NUM_LINE]; //LED1個のRGB8ライン分
 	for (int led = 0; led < LedProduct::Device::MAX_NUM_LED; led++) {
 		for (int line = 0; line < LedProduct::Device::MAX_NUM_LINE; line++) {
 			g[line] = src_dat[LedProduct::Device::MAX_NUM_LED * 3 * line + led * 3];
@@ -285,7 +274,7 @@ void Converter::convertRGB8LINE(uint8_t * src_dat, uint8_t * dst_buff) {
 }
 
 void Converter::convertRGB4LINE(uint8_t * src_dat, uint8_t * dst_buff) {
-	unsigned char r[LedProduct::Device::MAX_NUM_LINE], g[LedProduct::Device::MAX_NUM_LINE], b[LedProduct::Device::MAX_NUM_LINE]; //LED1個のRGB8ライン分
+	uint8_t r[LedProduct::Device::MAX_NUM_LINE], g[LedProduct::Device::MAX_NUM_LINE], b[LedProduct::Device::MAX_NUM_LINE]; //LED1個のRGB8ライン分
 	for (int led = 0; led < LedProduct::Device::MAX_NUM_LED; led++) {
 		for (int line = 0; line < LedProduct::Device::MAX_NUM_LINE; line++) {
 			g[line] = src_dat[LedProduct::Device::MAX_NUM_LED * 3 * line + led * 3];
@@ -330,26 +319,26 @@ void Converter::convertRGB4LINE(uint8_t * src_dat, uint8_t * dst_buff) {
 void Converter::convert8LINE(ofFile & src_file, ofFile & dst_file, unsigned int & dst_size) {
 	size_t pos = 0;
 	size_t file_size = src_file.getSize();
-	memset(next, 1, MovieToLedUtils::BUFF_SIZE);
-	memset(prev, 1, MovieToLedUtils::BUFF_SIZE);
+	memset(next, 1, MovieToLedData::BUFF_SIZE);
+	memset(prev, 1, MovieToLedData::BUFF_SIZE);
 	// M5LEDのヘッダーと1フレーム目(0,0,0のデータ)を飛ばす
 	src_file.seekg(0);
-	src_file.seekg(MovieToLedUtils::BUFF_SIZE * 2);
-	pos = MovieToLedUtils::BUFF_SIZE * 2;
+	src_file.seekg(MovieToLedData::BUFF_SIZE * 2);
+	pos = MovieToLedData::BUFF_SIZE * 2;
 	// 1フレーム目は0,0,0
-	memset(src, 0, MovieToLedUtils::BUFF_SIZE);
+	memset(src, 0, MovieToLedData::BUFF_SIZE);
 	for (int i = 0; i < LedProduct::Device::MAX_NUM_LINE; i++) {
 		regulatorOn(src, i);
 	}
 	convertRGB8LINE(src, dst);
 	// ファイルへ書き込み
-	dst_file.write((const char *)(dst), MovieToLedUtils::BUFF_SIZE);
+	dst_file.write((const char *)(dst), MovieToLedData::BUFF_SIZE);
 	// 2フレーム目以降
-	while (src_file.read(reinterpret_cast<char *>(next), MovieToLedUtils::BUFF_SIZE)) {
-		if (pos == MovieToLedUtils::BUFF_SIZE * 2) {
-			memcpy(prev, src, MovieToLedUtils::BUFF_SIZE);
-			memcpy(src, next, MovieToLedUtils::BUFF_SIZE);
-			pos += MovieToLedUtils::BUFF_SIZE;
+	while (src_file.read(reinterpret_cast<char *>(next), MovieToLedData::BUFF_SIZE)) {
+		if (pos == MovieToLedData::BUFF_SIZE * 2) {
+			memcpy(prev, src, MovieToLedData::BUFF_SIZE);
+			memcpy(src, next, MovieToLedData::BUFF_SIZE);
+			pos += MovieToLedData::BUFF_SIZE;
 			continue;
 		} else if (pos <= file_size) {
 			for (uint8_t num_line = 0; num_line < LedProduct::Device::MAX_NUM_LINE; num_line++) {
@@ -358,9 +347,9 @@ void Converter::convert8LINE(ofFile & src_file, ofFile & dst_file, unsigned int 
 				bool is_next_black = true;
 				unsigned short head_pos = LedProduct::Device::MAX_NUM_LED * 3 * num_line;
 				for (int num_led = 0; num_led < LedProduct::Device::MAX_NUM_LED; num_led++) {
-					if (is_prev_black) is_prev_black = isBlack(prev, head_pos + num_led, MovieToLedUtils::BUFF_SIZE);
-					if (is_black) is_black = isBlack(src, head_pos + num_led, MovieToLedUtils::BUFF_SIZE);
-					if (is_next_black) is_next_black = isBlack(next, head_pos + num_led, MovieToLedUtils::BUFF_SIZE);
+					if (is_prev_black) is_prev_black = isBlack(prev, head_pos + num_led, MovieToLedData::BUFF_SIZE);
+					if (is_black) is_black = isBlack(src, head_pos + num_led, MovieToLedData::BUFF_SIZE);
+					if (is_next_black) is_next_black = isBlack(next, head_pos + num_led, MovieToLedData::BUFF_SIZE);
 					if (!is_prev_black && !is_black && !is_next_black) break;
 				}
 				if (is_black) {
@@ -381,20 +370,20 @@ void Converter::convert8LINE(ofFile & src_file, ofFile & dst_file, unsigned int 
 		}
 		convertRGB8LINE(src, dst);
 		// ファイルへ書き込み
-		dst_file.write((const char *)(dst), MovieToLedUtils::BUFF_SIZE);
-		memcpy(prev, src, MovieToLedUtils::BUFF_SIZE);
-		memcpy(src, next, MovieToLedUtils::BUFF_SIZE);
-		pos += MovieToLedUtils::BUFF_SIZE;
+		dst_file.write((const char *)(dst), MovieToLedData::BUFF_SIZE);
+		memcpy(prev, src, MovieToLedData::BUFF_SIZE);
+		memcpy(src, next, MovieToLedData::BUFF_SIZE);
+		pos += MovieToLedData::BUFF_SIZE;
 	}
 	// 最終フレーム
-	memset(src, 0, MovieToLedUtils::BUFF_SIZE);
+	memset(src, 0, MovieToLedData::BUFF_SIZE);
 	for (uint8_t i = 0; i < LedProduct::Device::MAX_NUM_LINE; i++) {
 		regulatorOn(src, i);
 	}
 	// ファイルへ書き込み
-	dst_file.write((const char *)(dst), MovieToLedUtils::BUFF_SIZE);
+	dst_file.write((const char *)(dst), MovieToLedData::BUFF_SIZE);
 	dst_file.flush();
-	dst_size = dst_file.getSize() / MovieToLedUtils::BUFF_SIZE;
+	dst_size = dst_file.getSize() / MovieToLedData::BUFF_SIZE;
 	dst_file.close();
 	src_file.clear();
 	src_file.seekg(0);
@@ -404,39 +393,39 @@ void Converter::convert1000FPS(ofFile & src_file, ofFile & dst_file, unsigned in
 	// レギュレーターONのデータは必要ない
 	size_t pos = 0;
 	size_t file_size = src_file.getSize();
-	memset(next, 1, MovieToLedUtils::BUFF_SIZE);
-	memset(prev, 1, MovieToLedUtils::BUFF_SIZE);
+	memset(next, 1, MovieToLedData::BUFF_SIZE);
+	memset(prev, 1, MovieToLedData::BUFF_SIZE);
 	// M5LEDのヘッダーと1フレーム目(0,0,0のデータ)を飛ばす
-	src_file.seekg(MovieToLedUtils::BUFF_SIZE * 2);
-	pos = MovieToLedUtils::BUFF_SIZE * 2;
+	src_file.seekg(MovieToLedData::BUFF_SIZE * 2);
+	pos = MovieToLedData::BUFF_SIZE * 2;
 	// 1フレーム目は0,0,0
-	memset(src, 0, MovieToLedUtils::BUFF_SIZE);
+	memset(src, 0, MovieToLedData::BUFF_SIZE);
 	convertRGB8LINE(src, dst);
 	// ファイルへ書き込み
-	dst_file.write((const char *)(dst), MovieToLedUtils::BUFF_SIZE);
+	dst_file.write((const char *)(dst), MovieToLedData::BUFF_SIZE);
 	// 2フレーム目以降
-	while (src_file.read(reinterpret_cast<char *>(next), MovieToLedUtils::BUFF_SIZE)) {
-		if (pos == MovieToLedUtils::BUFF_SIZE * 2) {
-			memcpy(prev, src, MovieToLedUtils::BUFF_SIZE);
-			memcpy(src, next, MovieToLedUtils::BUFF_SIZE);
-			pos += MovieToLedUtils::BUFF_SIZE;
+	while (src_file.read(reinterpret_cast<char *>(next), MovieToLedData::BUFF_SIZE)) {
+		if (pos == MovieToLedData::BUFF_SIZE * 2) {
+			memcpy(prev, src, MovieToLedData::BUFF_SIZE);
+			memcpy(src, next, MovieToLedData::BUFF_SIZE);
+			pos += MovieToLedData::BUFF_SIZE;
 			continue;
 		} else if (pos <= file_size) {
 		}
 		convertRGB8LINE(src, dst);
 		// ファイルへ書き込み
-		dst_file.write((const char *)(dst), MovieToLedUtils::BUFF_SIZE);
-		memcpy(prev, src, MovieToLedUtils::BUFF_SIZE);
-		memcpy(src, next, MovieToLedUtils::BUFF_SIZE);
-		pos += MovieToLedUtils::BUFF_SIZE;
+		dst_file.write((const char *)(dst), MovieToLedData::BUFF_SIZE);
+		memcpy(prev, src, MovieToLedData::BUFF_SIZE);
+		memcpy(src, next, MovieToLedData::BUFF_SIZE);
+		pos += MovieToLedData::BUFF_SIZE;
 	}
 	// 最終フレーム
-	memset(src, 0, MovieToLedUtils::BUFF_SIZE);
+	memset(src, 0, MovieToLedData::BUFF_SIZE);
 	convertRGB8LINE(src, dst);
 	// ファイルへ書き込み
-	dst_file.write((const char *)(dst), MovieToLedUtils::BUFF_SIZE);
+	dst_file.write((const char *)(dst), MovieToLedData::BUFF_SIZE);
 	dst_file.flush();
-	dst_size = dst_file.getSize() / MovieToLedUtils::BUFF_SIZE;
+	dst_size = dst_file.getSize() / MovieToLedData::BUFF_SIZE;
 	dst_file.close();
 	src_file.clear();
 	src_file.seekg(0);
@@ -445,27 +434,27 @@ void Converter::convert1000FPS(ofFile & src_file, ofFile & dst_file, unsigned in
 void Converter::convert4LINE(ofFile & src_file, ofFile * dst_file, unsigned int * dst_size, int num_dst) {
 	size_t pos = 0;
 	size_t file_size = src_file.getSize();
-	memset(next, 1, MovieToLedUtils::BUFF_SIZE);
-	memset(prev, 1, MovieToLedUtils::BUFF_SIZE);
+	memset(next, 1, MovieToLedData::BUFF_SIZE);
+	memset(prev, 1, MovieToLedData::BUFF_SIZE);
 	// M5LEDのヘッダーと1フレーム目(0,0,0のデータ)を飛ばす
-	src_file.seekg(MovieToLedUtils::BUFF_SIZE * 2);
-	pos = MovieToLedUtils::BUFF_SIZE * 2;
+	src_file.seekg(MovieToLedData::BUFF_SIZE * 2);
+	pos = MovieToLedData::BUFF_SIZE * 2;
 	// 1フレーム目は0,0,0
-	memset(src, 0, MovieToLedUtils::BUFF_SIZE);
+	memset(src, 0, MovieToLedData::BUFF_SIZE);
 	for (uint8_t i = 0; i < LedProduct::Device::MAX_NUM_LINE; i++) {
 		regulatorOn(src, i);
 	}
 	convertRGB4LINE(src, dst);
 	// ファイルへ書き込み
 	for (int i = 0; i < num_dst; i++) {
-		dst_file[i].write((const char *)(&dst[3072 * i]), MovieToLedUtils::BUFF_SIZE / 2);
+		dst_file[i].write((const char *)(&dst[3072 * i]), MovieToLedData::BUFF_SIZE / 2);
 	}
 	// 2フレーム目以降
-	while (src_file.read(reinterpret_cast<char *>(next), MovieToLedUtils::BUFF_SIZE)) {
-		if (pos == MovieToLedUtils::BUFF_SIZE * 2) {
-			memcpy(prev, src, MovieToLedUtils::BUFF_SIZE);
-			memcpy(src, next, MovieToLedUtils::BUFF_SIZE);
-			pos += MovieToLedUtils::BUFF_SIZE;
+	while (src_file.read(reinterpret_cast<char *>(next), MovieToLedData::BUFF_SIZE)) {
+		if (pos == MovieToLedData::BUFF_SIZE * 2) {
+			memcpy(prev, src, MovieToLedData::BUFF_SIZE);
+			memcpy(src, next, MovieToLedData::BUFF_SIZE);
+			pos += MovieToLedData::BUFF_SIZE;
 			continue;
 		} else if (pos <= file_size) {
 			for (uint8_t num_line = 0; num_line < LedProduct::Device::MAX_NUM_LINE; num_line++) {
@@ -474,9 +463,9 @@ void Converter::convert4LINE(ofFile & src_file, ofFile * dst_file, unsigned int 
 				bool is_next_black = true;
 				unsigned short head_pos = LedProduct::Device::MAX_NUM_LED * 3 * num_line;
 				for (int num_led = 0; num_led < LedProduct::Device::MAX_NUM_LED; num_led++) {
-					if (is_prev_black) is_prev_black = isBlack(prev, head_pos + num_led, MovieToLedUtils::BUFF_SIZE);
-					if (is_black) is_black = isBlack(src, head_pos + num_led, MovieToLedUtils::BUFF_SIZE);
-					if (is_next_black) is_next_black = isBlack(next, head_pos + num_led, MovieToLedUtils::BUFF_SIZE);
+					if (is_prev_black) is_prev_black = isBlack(prev, head_pos + num_led, MovieToLedData::BUFF_SIZE);
+					if (is_black) is_black = isBlack(src, head_pos + num_led, MovieToLedData::BUFF_SIZE);
+					if (is_next_black) is_next_black = isBlack(next, head_pos + num_led, MovieToLedData::BUFF_SIZE);
 					if (!is_prev_black && !is_black && !is_next_black) break;
 				}
 				if (is_black) {
@@ -499,42 +488,40 @@ void Converter::convert4LINE(ofFile & src_file, ofFile * dst_file, unsigned int 
 		// ファイルへ書き込み
 		// 3072バイトずつ書き込み
 		for (int i = 0; i < num_dst; i++) {
-			dst_file[i].write((const char *)(&dst[3072 * i]), MovieToLedUtils::BUFF_SIZE / 2);
+			dst_file[i].write((const char *)(&dst[3072 * i]), MovieToLedData::BUFF_SIZE / 2);
 		}
-		memcpy(prev, src, MovieToLedUtils::BUFF_SIZE);
-		memcpy(src, next, MovieToLedUtils::BUFF_SIZE);
-		pos += MovieToLedUtils::BUFF_SIZE;
+		memcpy(prev, src, MovieToLedData::BUFF_SIZE);
+		memcpy(src, next, MovieToLedData::BUFF_SIZE);
+		pos += MovieToLedData::BUFF_SIZE;
 	}
 	// 最終フレーム
-	memset(src, 0, MovieToLedUtils::BUFF_SIZE);
+	memset(src, 0, MovieToLedData::BUFF_SIZE);
 	for (uint8_t i = 0; i < LedProduct::Device::MAX_NUM_LINE; i++) {
 		regulatorOn(src, i);
 	}
 	// ファイルへ書き込み
 	// 3072バイトずつ書き込み
 	for (int i = 0; i < num_dst; i++) {
-		dst_file[i].write((const char *)(&dst[3072 * i]), MovieToLedUtils::BUFF_SIZE / 2);
+		dst_file[i].write((const char *)(&dst[3072 * i]), MovieToLedData::BUFF_SIZE / 2);
 		dst_file[i].flush();
-		dst_size[i] = dst_file[i].getSize() / (MovieToLedUtils::BUFF_SIZE / 2);
+		dst_size[i] = dst_file[i].getSize() / (MovieToLedData::BUFF_SIZE / 2);
 		dst_file[i].close();
 	}
 	src_file.clear();
 	src_file.seekg(0);
 }
 
-void Converter::createBIN(uint8_t sound_num) {
-	if (isValid()) {
-		std::string product_dir = output_dir + "/BIN/" + output_data->led_product.getName();
-		if (MovieToLedUtils::MtLStates::isOutputBin()) {
-			convert_count = 0;
-			max_convert_count = static_cast<int>(output_data->output_files.size());
-			if (MovieToLedUtils::MtLStates::Converter::output_8line_bin) createBIN8LINE(product_dir, sound_num);
-			if (MovieToLedUtils::MtLStates::Converter::output_4line_bin) createBIN4LINE(product_dir, sound_num);
-		}
+void Converter::createBIN() {
+	std::string product_dir = output_dir + "/BIN/" + mtl_data.led_product.getName();
+	if (mtl_data.led_product.isOutputBin()) {
+		convert_count = 0;
+		max_convert_count = static_cast<int>(mtl_data.output_files.size());
+		if (mtl_data.led_product.isOutput8lineBin()) createBIN8LINE(product_dir, sound_number);
+		if (mtl_data.led_product.isOutput4lineBin()) createBIN4LINE(product_dir, sound_number);
 	}
 }
 
-bool Converter::convert(MovieToLedUtils::OutputFiles & output_files, uint8_t sound_number, uint16_t product_id, uint16_t device_id) {
+bool Converter::convert(OutputFiles & output_files, uint8_t sound_number, uint16_t product_id, uint16_t device_id) {
 	char m5led[29];
 	snprintf(m5led, 29, "%05d-%05d/%02X_%03d-%03d.M5LED", (product_id >> 8) << 8, ((product_id >> 8) << 8) + 0xff, sound_number, product_id & 0xff, device_id & 0xff);
 	if (output_files.M5LED.find(m5led) != std::string::npos) {
@@ -545,17 +532,17 @@ bool Converter::convert(MovieToLedUtils::OutputFiles & output_files, uint8_t sou
 		// printf("4LINE : %s\r\n", output_data->output_files[num_conv].BIN_DEVICE_4LINE_ABCD.c_str());
 		// printf("4LINE : %s\r\n", output_data->output_files[num_conv].BIN_DEVICE_4LINE_EFGH.c_str());
 		// printf("------------------------------\r\n");
-		if (FileUtils::openFile(m5led_file, output_files.M5LED, ofFile::ReadOnly)) {
+		if (MovieToLedFileUtils::openFile(m5led_file, output_files.M5LED, ofFile::ReadOnly)) {
 			std::string conv_file_name;
 			unsigned int file_size[4];
-			if (MovieToLedUtils::MtLStates::Converter::output_8line_bin) {
-				if (FileUtils::openFile(conv_file[0], output_files.BIN_DEVICE_1000FPS, ofFile::Append) && FileUtils::openFile(conv_file[1], output_files.BIN_DEVICE_8LINE, ofFile::Append)) {
+			if (mtl_data.led_product.isOutput8lineBin()) {
+				if (MovieToLedFileUtils::openFile(conv_file[0], output_files.BIN_DEVICE_1000FPS, ofFile::Append) && MovieToLedFileUtils::openFile(conv_file[1], output_files.BIN_DEVICE_8LINE, ofFile::Append)) {
 					// printf("Convert to BIN for 8LINE\r\n");
 					conv_file_name = conv_file[0].getFileName();
 					// ヘッダー
 					// 8LINEのBINは1フレームのデータが6144(= 256 * 3 * 8)byte
-					setHeader8LINE(conv_file[0], dst, MovieToLedUtils::BUFF_SIZE, num_total_frame, device_id);
-					setHeader8LINE(conv_file[1], dst, MovieToLedUtils::BUFF_SIZE, num_total_frame, device_id);
+					setHeader8LINE(conv_file[0], dst, MovieToLedData::BUFF_SIZE, num_total_frame, device_id);
+					setHeader8LINE(conv_file[1], dst, MovieToLedData::BUFF_SIZE, num_total_frame, device_id);
 					// M5LED -> BIN
 					// 1000FPSのBIN
 					convert1000FPS(m5led_file, conv_file[0], file_size[0]);
@@ -563,13 +550,13 @@ bool Converter::convert(MovieToLedUtils::OutputFiles & output_files, uint8_t sou
 					convert8LINE(m5led_file, conv_file[1], file_size[1]);
 				}
 			}
-			if (MovieToLedUtils::MtLStates::Converter::output_4line_bin) {
-				if (FileUtils::openFile(conv_file[0], output_files.BIN_DEVICE_4LINE_ABCD, ofFile::Append) && FileUtils::openFile(conv_file[1], output_files.BIN_DEVICE_4LINE_EFGH, ofFile::Append)) {
+			if (mtl_data.led_product.isOutput4lineBin()) {
+				if (MovieToLedFileUtils::openFile(conv_file[0], output_files.BIN_DEVICE_4LINE_ABCD, ofFile::Append) && MovieToLedFileUtils::openFile(conv_file[1], output_files.BIN_DEVICE_4LINE_EFGH, ofFile::Append)) {
 					// printf("Convert to BIN for 4LINE\r\n");
 					// ヘッダー
 					// 4LINEのBINは1フレームのデータが3072(= 256 * 3 * 4)byte
-					setHeader4LINE_ABCD(conv_file[0], dst, MovieToLedUtils::BUFF_SIZE / 2, num_total_frame, device_id);
-					setHeader4LINE_EFGH(conv_file[1], dst, MovieToLedUtils::BUFF_SIZE / 2, num_total_frame, device_id);
+					setHeader4LINE_ABCD(conv_file[0], dst, MovieToLedData::BUFF_SIZE / 2, num_total_frame, device_id);
+					setHeader4LINE_EFGH(conv_file[1], dst, MovieToLedData::BUFF_SIZE / 2, num_total_frame, device_id);
 					// M5LED -> BIN
 					// 4LINEのBIN(8ラインを4ラインずつ)
 					convert4LINE(m5led_file, conv_file, &file_size[2], 2);
@@ -577,31 +564,29 @@ bool Converter::convert(MovieToLedUtils::OutputFiles & output_files, uint8_t sou
 			}
 			// 変換が終了したら、ファイルサイズを比較
 			// すべて同じサイズなら問題なし
-			if (completed_file) {
-				char completed[128];
-				// printf("%d %d %d %d\r\n", file_size[0], file_size[1], file_size[2], file_size[3]);
-				if (MovieToLedUtils::MtLStates::Converter::output_8line_bin && MovieToLedUtils::MtLStates::Converter::output_4line_bin) {
-					if (file_size[0] == file_size[1] && file_size[1] == file_size[2] && file_size[2] == file_size[3]) {
-						snprintf(completed, 128, "%s (%d)", conv_file_name.c_str(), file_size[0]);
-					} else {
-						snprintf(completed, 128, "%s ERROR", conv_file_name.c_str());
-					}
-					completed_file->push_back(completed);
-				} else if (MovieToLedUtils::MtLStates::Converter::output_8line_bin && !MovieToLedUtils::MtLStates::Converter::output_4line_bin) {
-					if (file_size[0] == file_size[1]) {
-						snprintf(completed, 128, "%s (%d)", conv_file_name.c_str(), file_size[0]);
-					} else {
-						snprintf(completed, 128, "%s ERROR", conv_file_name.c_str());
-					}
-					completed_file->push_back(completed);
-				} else if (!MovieToLedUtils::MtLStates::Converter::output_8line_bin && MovieToLedUtils::MtLStates::Converter::output_4line_bin) {
-					if (file_size[2] == file_size[3]) {
-						snprintf(completed, 128, "%s (%d)", conv_file_name.c_str(), file_size[2]);
-					} else {
-						snprintf(completed, 128, "%s ERROR", conv_file_name.c_str());
-					}
-					completed_file->push_back(completed);
+			char completed[128];
+			// printf("%d %d %d %d\r\n", file_size[0], file_size[1], file_size[2], file_size[3]);
+			if (mtl_data.led_product.isOutput8lineBin() && mtl_data.led_product.isOutput4lineBin()) {
+				if (file_size[0] == file_size[1] && file_size[1] == file_size[2] && file_size[2] == file_size[3]) {
+					snprintf(completed, 128, "%s (%d)", conv_file_name.c_str(), file_size[0]);
+				} else {
+					snprintf(completed, 128, "%s ERROR", conv_file_name.c_str());
 				}
+				completed_file.push_back(completed);
+			} else if (mtl_data.led_product.isOutput8lineBin() && !mtl_data.led_product.isOutput4lineBin()) {
+				if (file_size[0] == file_size[1]) {
+					snprintf(completed, 128, "%s (%d)", conv_file_name.c_str(), file_size[0]);
+				} else {
+					snprintf(completed, 128, "%s ERROR", conv_file_name.c_str());
+				}
+				completed_file.push_back(completed);
+			} else if (!mtl_data.led_product.isOutput8lineBin() && mtl_data.led_product.isOutput4lineBin()) {
+				if (file_size[2] == file_size[3]) {
+					snprintf(completed, 128, "%s (%d)", conv_file_name.c_str(), file_size[2]);
+				} else {
+					snprintf(completed, 128, "%s ERROR", conv_file_name.c_str());
+				}
+				completed_file.push_back(completed);
 			}
 			return true;
 		}
@@ -610,23 +595,21 @@ bool Converter::convert(MovieToLedUtils::OutputFiles & output_files, uint8_t sou
 }
 
 void Converter::process() {
-	if (isValid()) {
-		if (convert_count >= max_convert_count) return;
-		uint16_t start_product_id = output_data->led_product.getStartProductId();
-		uint16_t end_product_id = output_data->led_product.getEndProductId();
-		uint16_t num_device = output_data->led_product.getNumDevice();
-		for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
-			for (uint16_t device_id = 0; device_id < num_device; device_id++) {
-				if (convert(output_data->output_files[convert_count], sound_number, product_id, device_id)) {
-					convert_count++;
-					return;
-				}
+	if (convert_count >= max_convert_count) return;
+	uint16_t start_product_id = mtl_data.led_product.getStartProductId();
+	uint16_t end_product_id = mtl_data.led_product.getEndProductId();
+	uint16_t num_device = mtl_data.led_product.getNumDevice();
+	for (uint16_t product_id = start_product_id; product_id <= end_product_id; product_id++) {
+		for (uint16_t device_id = 0; device_id < num_device; device_id++) {
+			if (convert(mtl_data.output_files[convert_count], sound_number, product_id, device_id)) {
+				convert_count++;
+				return;
 			}
 		}
 	}
 }
 
-uint16_t Converter::getBlockSize(uint16_t num_device, DeviceIdFormat id_format) {
+uint16_t Converter::getBlockSize(uint16_t num_device, ProductProfile::DeviceIdFormat id_format) {
 	// ブロックサイズ = 1プロダクトが消費するBIN名の数
 	// BINの命名規則
 	// 1. BIN名のデバイスIDは2桁
@@ -637,12 +620,12 @@ uint16_t Converter::getBlockSize(uint16_t num_device, DeviceIdFormat id_format) 
 	// デバイス数が11の場合00から19の範囲に収まる -> ブロックサイズ = 20
 
 	if (num_device == 1) return 1; // デバイス数が1台の場合、ブロックサイズ = 1
-	uint8_t base = id_format == DeviceIdFormat::HEX ? 16 : 10;
+	uint8_t base = id_format == ProductProfile::DeviceIdFormat::HEX ? 16 : 10;
 	uint8_t blocks = (num_device + (base - 1)) / base;
 	return blocks * base;
 }
 
-uint16_t Converter::getMaxProductCount(uint16_t num_device, DeviceIdFormat id_format) {
+uint16_t Converter::getMaxProductCount(uint16_t num_device, ProductProfile::DeviceIdFormat id_format) {
 	// プロダクト収容数: 同じディレクトリに入れられるBINのプロダクト数(1連のBIN名に収容できるプロダクト数)
 	// ファイル名が10進数表記の場合 00-99
 	// デバイス数が1 -> ブロックサイズ = 1 -> プロダクト収容数 = 100
@@ -662,12 +645,11 @@ uint16_t Converter::getMaxProductCount(uint16_t num_device, DeviceIdFormat id_fo
 	// デバイス数が81 - 128 -> ブロックサイズ = 96 - 128 -> プロダクト収容数 = 2
 	// デバイス数が129 - 256 -> ブロックサイズ = 144 - 256 -> プロダクト収容数 = 1
 
-	if (num_device == 1) return id_format == DeviceIdFormat::HEX ? 256 : 100; // デバイス数が1台のプロダクトの場合、収容数 = 256 or 100
+	if (num_device == 1) return id_format == ProductProfile::DeviceIdFormat::HEX ? 256 : 100; // デバイス数が1台のプロダクトの場合、収容数 = 256 or 100
 	uint8_t b = getBlockSize(num_device, id_format); // ブロックサイズ
-	uint8_t base = id_format == DeviceIdFormat::HEX ? 16 : 10;
+	uint8_t base = id_format == ProductProfile::DeviceIdFormat::HEX ? 16 : 10;
 	uint8_t max_value = base * base - 1; //　BIN名の最大値
 	uint8_t max_index = max_value - (num_device - 1); // デバイス数がBIN名の最大値を超えていないか
 	if (max_index < 0) return 0; // 1プロダクトも入らない
 	return (max_index / b) + 1;
 }
-
