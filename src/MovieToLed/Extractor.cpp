@@ -2,14 +2,15 @@
 #include "LedLoader.hpp"
 #include "MovieToLedFileUtils.hpp"
 #include "MovieToLedRuntimeState.hpp"
+#include "UIContext.hpp"
 
 Extractor::Extractor(MovieToLedData & mtl_data_ref, LedColorCorrection & led_color_correction_ref)
 	: mtl_data(mtl_data_ref)
 	, led_color_correction(led_color_correction_ref) {
 	video_file_name.clear();
 	// video_pixels.allocate(FULL_HD_WIDTH, FULL_HD_HEIGHT, OF_PIXELS_RGB);
-	video_image.allocate(MovieToLedUtils::DisplaySize::FULL_HD_WIDTH, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT, OF_IMAGE_COLOR);
-	frame_mat = cv::Mat(MovieToLedUtils::DisplaySize::FULL_HD_WIDTH, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT, CV_8UC3);
+	video_image.allocate(UIContext::FULL_HD.width, UIContext::FULL_HD.height, OF_IMAGE_COLOR);
+	frame_mat = cv::Mat(UIContext::FULL_HD.width, UIContext::FULL_HD.height, CV_8UC3);
 	curr_frame = 0;
 	prev_frame = 0;
 	total_frame = 0;
@@ -59,6 +60,23 @@ void Extractor::clearVideo() {
 	duration_min = 0;
 	duration_sec = 0;
 }
+
+// void Extractor::loadLed(uint8_t scene_num) {
+// 	snprintf(file_name, 18, "/suit_led_s%d.csv", scene_num);
+// 	char suffix[8];
+// 	// デバイス数が1の場合、100プロダクトごとに
+// 	// デバイス数が2以上の場合、10プロダクトごとにLEDのマップデータがある
+// 	uint8_t product_count = num_device == 1 ? 100 : 10;
+// 	uint16_t head_id = (start_product_id / product_count) * product_count;
+// 	while (head_id <= end_product_id) {
+// 		snprintf(suffix, 8, "%d-%d", head_id, head_id + product_count - 1);
+// 		string dir_name = MovieToLedUtils::DirPaths::CONTENTS_DIR + "/" + mtl_data.led_product.getName() + suffix;
+// 		// LEDのマップ情報を更新
+// 		mtl_data.led_product.setLed(dir_name + file_name, head_id, MovieToLedRuntimeState::error_msg);
+// 		head_id += product_count;
+// 	}
+// 	mtl_data.led_product.setNumLed();
+// }
 
 void Extractor::allocate(int w, int h) {
 	video_image.allocate(w, h, OF_IMAGE_COLOR);
@@ -182,14 +200,15 @@ void Extractor::setHeader(uint16_t product_id, uint16_t device_id) {
 	buff[3] = 30;
 	buff[4] = (total_frame >> 8) & 0xff;
 	buff[5] = total_frame & 0xff;
-	buff[6] = mtl_data.led_product.getNumLed(device_id, 0);
-	buff[7] = mtl_data.led_product.getNumLed(device_id, 1);
-	buff[8] = mtl_data.led_product.getNumLed(device_id, 2);
-	buff[9] = mtl_data.led_product.getNumLed(device_id, 3);
-	buff[10] = mtl_data.led_product.getNumLed(device_id, 4);
-	buff[11] = mtl_data.led_product.getNumLed(device_id, 5);
-	buff[12] = mtl_data.led_product.getNumLed(device_id, 6);
-	buff[13] = mtl_data.led_product.getNumLed(device_id, 7);
+	buff[6] = mtl_data.led_product.getNumLed(product_id, device_id, 0);
+	buff[7] = mtl_data.led_product.getNumLed(product_id, device_id, 1);
+	buff[8] = mtl_data.led_product.getNumLed(product_id, device_id, 2);
+	buff[9] = mtl_data.led_product.getNumLed(product_id, device_id, 3);
+	buff[10] = mtl_data.led_product.getNumLed(product_id, device_id, 4);
+	buff[11] = mtl_data.led_product.getNumLed(product_id, device_id, 5);
+	buff[11] = mtl_data.led_product.getNumLed(product_id, device_id, 5);
+	buff[12] = mtl_data.led_product.getNumLed(product_id, device_id, 6);
+	buff[13] = mtl_data.led_product.getNumLed(product_id, device_id, 7);
 	buff[14] = loop_playback ? 1 : 0; //ループするか
 	buff[15] = 0xed;
 }
@@ -215,6 +234,17 @@ void Extractor::applyColorCorrection(uint8_t (&dat)[3], Led::LedType type) {
 	} else if (type == Led::LedType::NORMAL) {
 		led_color_correction.applyLedColorCorrection(dat);
 	}
+	// uint8_t rgb_gain = (type == LedType::PANEL) ? panel_rgb_gain : led_rgb_gain;
+	// uint8_t white_gain = (type == LedType::PANEL) ? panel_white_gain : led_white_gain;
+	// uint8_t gain = (dat[0] == dat[1] && dat[1] == dat[2]) ? white_gain : rgb_gain;
+	// for (int i = 0; i < 3; i++) {
+	// 	// ゲイン適用
+	// 	dat[i] = (dat[i] * gain) / 100;
+	// 	// ガンマ補正
+	// 	dat[i] = gamma_table[dat[i]];
+	// 	// 最大値250に
+	// 	dat[i] = (dat[i] > 250) ? 250 : dat[i];
+	// }
 }
 
 void Extractor::logBlack(ofFile & file, string path, bool is_src_blk, bool is_dat_blk, uint16_t product_id, uint16_t device_id) {
@@ -288,7 +318,7 @@ bool Extractor::getVideoFrame(int frame, ofImage & img) {
 void Extractor::logScene(uint8_t scene, uint16_t frame) {
 	ofFile file;
 	MovieToLedFileUtils::openFile(file, log_scene_path, ofFile::Append, false);
-	snprintf(log_buff, 64, "%d,%d\n", frame, scene);
+	snprintf(log_buff, 64, "%d,%d,\n", frame, scene);
 	if (file && file.is_open()) {
 		file.write(log_buff, strlen(log_buff));
 		file.close();

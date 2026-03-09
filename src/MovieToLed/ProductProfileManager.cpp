@@ -39,7 +39,7 @@ ProductProfileManager::ProductProfileManager(std::vector<ProductProfile> & profi
 	create_panel.add(label_device_type.setup("Which Device Type?", "8Line"));
 	create_panel.add(device_type_8line.set("8Line", true));
 	create_panel.add(device_type_4line.set("4Line", false));
-	create_panel.add(num_device.setup("How Many Devices", 1));
+	create_panel.add(input_num_device.setup("How Many Devices", 1));
 	create_panel.add(btn_create.setup("Enter"));
 }
 
@@ -189,26 +189,6 @@ void ProductProfileManager::saveProductSetting() {
 	json.save(ofToDataPath(MovieToLedUtils::FilePaths::PRODUCT_SETTING_JSON), true);
 }
 
-// uint16_t ProductConfig::getDeviceNum(ProductContent & content) {
-// 	std::string file_path = MovieToLedUtils::DirPaths::PRODUCT_DIR + "/" + content.product_name + ".conf";
-// 	ofFile file(file_path);
-// 	if (!file.exists()) {
-// 		MovieToLedRuntimeState::error_msg = file_path + "\r\nFile Not Found.";
-// 		return 0;
-// 	}
-// 	ofBuffer buff(file);
-// 	uint16_t num_device = 0;
-// 	for (auto line : buff.getLines()) {
-// 		std::vector<std::string> dat = ofSplitString(line, ":");
-// 		if (dat[0] == "Devices") {
-// 			num_device = static_cast<uint16_t>(ofToInt(dat[1]));
-// 		}
-// 	}
-// 	file.close();
-// 	buff.clear();
-// 	return num_device;
-// }
-
 // void ProductProfileManager::create() {
 // 	if (isValid() && !contents->empty()) {
 // 		bool prev_found_config = found_config[index];
@@ -307,6 +287,7 @@ void ProductProfileManager::updateEditPanel(ProductProfile & profile) {
 	is_edit.setName(edit ? "Edit Device Profile?:YES" : "Edit Device Profile?:NO");
 	device_type_8line.removeListener(this, &ProductProfileManager::deviceType8LineChanged);
 	device_type_4line.removeListener(this, &ProductProfileManager::deviceType4LineChanged);
+	input_num_device.removeListener(this, &ProductProfileManager::inputNumDeviceChanged);
 
 	btn_create.removeListener(this, &ProductProfileManager::create);
 
@@ -316,12 +297,13 @@ void ProductProfileManager::updateEditPanel(ProductProfile & profile) {
 	device_type_4line = profile.device_type == ProductProfile::DeviceType::LINE4;
 	label_device_type = device_type_4line ? "4Line" : "8Line";
 
-	num_device = profile.num_device;
+	input_num_device = profile.num_device;
 
 	// btn_create.setName("Update " + product_name + ".conf");
 
 	device_type_8line.addListener(this, &ProductProfileManager::deviceType8LineChanged);
 	device_type_4line.addListener(this, &ProductProfileManager::deviceType4LineChanged);
+	input_num_device.addListener(this, &ProductProfileManager::inputNumDeviceChanged);
 
 	btn_create.addListener(this, &ProductProfileManager::create);
 }
@@ -541,6 +523,15 @@ void ProductProfileManager::deviceType8LineChanged(bool & type_8) {
 			} else {
 				if (!device_type_4line) type_8 = true;
 			}
+		}
+	}
+}
+
+void ProductProfileManager::inputNumDeviceChanged(uint16_t & num) {
+	if (MovieToLedRuntimeState::isWaiting() || MovieToLedRuntimeState::isReady()) {
+		uint8_t index = profile_index - 1;
+		if (index < static_cast<uint8_t>(product_profiles.size())) {
+			product_profiles[index].num_device = num;
 		}
 	}
 }

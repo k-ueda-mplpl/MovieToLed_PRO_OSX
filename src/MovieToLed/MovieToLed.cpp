@@ -16,7 +16,7 @@ MovieToLed::MovieToLed() {
 	sound_number.addListener(this, &MovieToLed::soundNumberChanged);
 	play_once.addListener(this, &MovieToLed::playOnceChanged);
 	play_loop.addListener(this, &MovieToLed::playLoopChanged);
-	data_panel.add(sound_number.set("Sound Number", 0, 0, 10));
+	data_panel.add(sound_number.set("Sound Number", 0, 0, MovieToLedData::MAX_SOUND_NUMBER));
 	data_panel.add(label_m5led_loop_playback.setup("M5LED Loop Playback?", "NO"));
 	data_panel.add(play_loop.set("YES (Loop Playback)", false));
 	data_panel.add(play_once.set("NO (Play Once)", true));
@@ -30,19 +30,12 @@ MovieToLed::MovieToLed() {
 	btn_clear_metadata.addListener(this, &MovieToLed::clearMetadata);
 	metadata_panel.add(btn_clear_metadata.setup("Clear M5LED METADATA"));
 
-	MovieToLedUtils::Font::Tiny.load("Font/NotoSansJP-Regular.ttf", 12);
-	MovieToLedUtils::Font::Small.load("Font/NotoSansJP-Regular.ttf", 16);
-	MovieToLedUtils::Font::Middle.load("Font/NotoSansJP-Medium.ttf", 32);
-	MovieToLedUtils::Font::Large.load("Font/NotoSansJP-SemiBold.ttf", 64);
-
 	extractor.setOutputDir(output_dir_path);
 	extractor.setCallback(std::bind(&MovieToLed::onExtracted, this));
 	converter.setOutputDir(output_dir_path);
 	device_map.setOutputDir(output_dir_path);
 
-	window_mode = "FULL HD";
-	window_width = MovieToLedUtils::DisplaySize::FULL_HD_WIDTH;
-	window_height = MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT;
+	UIContext::setup();
 }
 
 MovieToLed::~MovieToLed() {
@@ -70,9 +63,9 @@ void MovieToLed::setupRender(int x, int y, int width, int height, int gui_width)
 	drag_area.height = height;
 	panel_width = gui_width;
 
-	profile_manager.setupRender(drag_area.position.x + MovieToLedUtils::DisplaySize::FULL_HD_WIDTH / 4 + 32, drag_area.y + drag_area.height + 64, panel_width);
+	profile_manager.setupRender(drag_area.position.x + UIContext::pc_display_size.width / 4 + 32, drag_area.y + drag_area.height + 64, panel_width);
 
-	device_map_panel.setPosition(drag_area.position.x + MovieToLedUtils::DisplaySize::FULL_HD_WIDTH / 4 + 32, profile_manager.getBottomY());
+	device_map_panel.setPosition(drag_area.position.x + UIContext::pc_display_size.width / 4 + 32, profile_manager.getBottomY());
 	device_map_panel.setWidthElements(panel_width);
 
 	data_panel.setPosition(drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48 + 162);
@@ -132,7 +125,7 @@ void MovieToLed::start() {
 		string log_black_path = output_dir_path + "/LOG/" + mtl_data.led_product.getName() + "/BlackData.csv";
 		string log_skip_path = output_dir_path + "/LOG/" + mtl_data.led_product.getName() + "/SkipFrame.csv";
 		string log_frame_path = output_dir_path + "/LOG/" + mtl_data.led_product.getName() + "/Frame.csv";
-		string log_scene_path = output_dir_path + "/LOG/" + mtl_data.led_product.getName() + "/Scenes_" + ofToString((uint8_t)sound_number, 2, '0') + ".csv";
+		string log_scene_path = output_dir_path + "/LOG/" + mtl_data.led_product.getName() + "/Scenes_" + ofToString((int)sound_number, 2, '0') + ".csv";
 		extractor.createLogBlackFile(log_black_path);
 		extractor.createLogSkipFile(log_skip_path);
 		extractor.createLogFrameFile(log_frame_path);
@@ -187,17 +180,17 @@ void MovieToLed::draw() {
 		// エラー
 		ofSetBackgroundColor(228, 0, 6);
 		ofSetColor(255, 255, 255, 255);
-		MovieToLedUtils::Font::Large.drawString(MovieToLedRuntimeState::error_msg, 10, window_height / 2);
+		UIContext::Font::Large.drawString(MovieToLedRuntimeState::error_msg, 10, UIContext::pc_display_size.height / 2);
 		MovieToLedRuntimeState::runtime_state = MovieToLedRuntimeState::RuntimeState::WAITING;
 		return;
 	}
 	if (MovieToLedRuntimeState::isCompleted()) {
 		// BINデータ変換終了
 		ofSetBackgroundColor(14, 167, 39);
-		MovieToLedUtils::Font::Large.drawString("Completed All Product Data", drag_area.position.x, drag_area.position.y + 58);
-		MovieToLedUtils::Font::Large.drawString("Press SPACE Key to Continue MtL", drag_area.position.x, drag_area.position.y + 168);
+		UIContext::Font::Large.drawString("Completed All Product Data", drag_area.position.x, drag_area.position.y + 58);
+		UIContext::Font::Large.drawString("Press SPACE Key to Continue MtL", drag_area.position.x, drag_area.position.y + 168);
 		for (int i = 0; i < static_cast<int>(converter.completed_file.size()); i++) {
-			MovieToLedUtils::Font::Tiny.drawString(converter.completed_file[i], drag_area.position.x + 200 * (i / 30), drag_area.position.y + 208 + 24 * (i % 30));
+			UIContext::Font::Tiny.drawString(converter.completed_file[i], drag_area.position.x + 200 * (i / 30), drag_area.position.y + 208 + 24 * (i % 30));
 		}
 	} else if (MovieToLedRuntimeState::isConverting()) {
 		// BINデータ変換中
@@ -214,18 +207,18 @@ void MovieToLed::draw() {
 		uint8_t duration_sec = extractor.getDurationSec();
 
 		ofSetBackgroundColor(14, 167, 39);
-		MovieToLedUtils::Font::Middle.drawString(product_name + " Convert to BIN", drag_area.position.x, drag_area.position.y + 32);
+		UIContext::Font::Middle.drawString(product_name + " Convert to BIN", drag_area.position.x, drag_area.position.y + 32);
 		snprintf(str, 128, "Product ID Range : %d - %d / Devices per Product : %d\r\n", start_product_id, end_product_id, num_device);
-		MovieToLedUtils::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 58);
-		MovieToLedUtils::Font::Small.drawString("Device Type : " + device_type + " / ID Format : " + format, drag_area.position.x, drag_area.position.y + 84);
+		UIContext::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 58);
+		UIContext::Font::Small.drawString("Device Type : " + device_type + " / ID Format : " + format, drag_area.position.x, drag_area.position.y + 84);
 		snprintf(str, 128, "Video : %s", video_file_name.c_str());
-		MovieToLedUtils::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 110);
+		UIContext::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 110);
 		snprintf(str, 128, "Frame : %d / %d (%02d:%02d)", frame, total_frame, duration_min, duration_sec);
-		MovieToLedUtils::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 136);
+		UIContext::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 136);
 		snprintf(str, 32, "Completed BIN File: %llu", converter.completed_file.size());
-		MovieToLedUtils::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 178);
+		UIContext::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 178);
 		for (int i = 0; i < static_cast<int>(converter.completed_file.size()); i++) {
-			MovieToLedUtils::Font::Tiny.drawString(converter.completed_file[i], drag_area.position.x + 200 * (i / 30), drag_area.position.y + 208 + 24 * (i % 30));
+			UIContext::Font::Tiny.drawString(converter.completed_file[i], drag_area.position.x + 200 * (i / 30), drag_area.position.y + 208 + 24 * (i % 30));
 		}
 	} else if (MovieToLedRuntimeState::isExtracting()) {
 		// M5LED生成中
@@ -241,22 +234,22 @@ void MovieToLed::draw() {
 
 		extractor.video_image.draw(0, 0);
 		ofSetColor(255, 255, 255, 255);
-		MovieToLedUtils::Font::Middle.drawString(product_name + " Create M5LED", drag_area.position.x, drag_area.position.y + 32);
+		UIContext::Font::Middle.drawString(product_name + " Create M5LED", drag_area.position.x, drag_area.position.y + 32);
 		snprintf(str, 128, "Product ID Range : %d - %d / Devices per Product : %d\r\n", start_product_id, end_product_id, num_device);
-		MovieToLedUtils::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 58);
+		UIContext::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 58);
 		snprintf(str, 128, "Sound Number : %d", (int)sound_number);
-		MovieToLedUtils::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 84);
-		MovieToLedUtils::Font::Small.drawString(extractor.isLoopPlayback() ? "M5LED Loop Playback : ON" : "M5LED Loop Playback : OFF", drag_area.position.x, drag_area.position.y + 110);
+		UIContext::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 84);
+		UIContext::Font::Small.drawString(extractor.isLoopPlayback() ? "M5LED Loop Playback : ON" : "M5LED Loop Playback : OFF", drag_area.position.x, drag_area.position.y + 110);
 		if (mtl_data.led_product.isOutputBin()) {
 			string device_type = mtl_data.led_product.getDeviceType() == ProductProfile::DeviceType::LINE4 ? "4Line" : "8Line";
 			string format = mtl_data.led_product.getDeviceIdFormat() == ProductProfile::DeviceIdFormat::HEX ? "HEX (ID : 00 - FF)" : "DEC (ID : 00 - 99)";
-			MovieToLedUtils::Font::Small.drawString("BIN : Device Type : " + device_type + " / ID Format : " + format, drag_area.position.x, drag_area.position.y + 136);
+			UIContext::Font::Small.drawString("BIN : Device Type : " + device_type + " / ID Format : " + format, drag_area.position.x, drag_area.position.y + 136);
 		}
 		snprintf(str, 128, "Video : %s", video_file_name.c_str());
-		MovieToLedUtils::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 162);
+		UIContext::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 162);
 		snprintf(str, 128, "Frame : %d / %d (%02d:%02d)", frame, total_frame, duration_min, duration_sec);
-		MovieToLedUtils::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 188);
-		extractor.drawLogSkip(window_width - 340, window_height / 2 + 40);
+		UIContext::Font::Small.drawString(str, drag_area.position.x, drag_area.position.y + 188);
+		extractor.drawLogSkip(UIContext::pc_display_size.width - 340, UIContext::pc_display_size.height / 2 + 40);
 	} else if (MovieToLedRuntimeState::isWaiting() || MovieToLedRuntimeState::isReady()) {
 		// 処理前
 		string video_file_name = extractor.getVideoFileName();
@@ -268,24 +261,24 @@ void MovieToLed::draw() {
 			extractor.video_image.draw(0, 0);
 		}
 		ofSetColor(36, 36, 36, 128);
-		ofDrawRectangle(0, 0, window_width, window_height);
+		ofDrawRectangle(0, 0, UIContext::display_size.width, UIContext::display_size.height);
 		ofSetColor(255, 255, 255);
 		ofNoFill();
 		ofDrawRectangle(drag_area);
 		ofFill();
 		ofSetColor(255, 255, 255, 255);
-		MovieToLedUtils::Font::Large.drawString("Drag & Drop Here", drag_area.x + 32, drag_area.y + drag_area.height / 2 + 32);
-		MovieToLedUtils::Font::Small.drawString("Drag & Drop a Directory (Formation SAVEDATA/csv) to Load New MtL Contents", drag_area.x + 32, drag_area.y + drag_area.height / 2 + 96);
-		MovieToLedUtils::Font::Small.drawString("Drag & Drop a MOV or MP4 File to Load New Video", drag_area.x + 32, drag_area.y + drag_area.height / 2 + 128);
+		UIContext::Font::Large.drawString("Drag & Drop Here", drag_area.x + 32, drag_area.y + drag_area.height / 2 + 32);
+		UIContext::Font::Small.drawString("Drag & Drop a Directory (Formation SAVEDATA/csv) to Load New MtL Contents", drag_area.x + 32, drag_area.y + drag_area.height / 2 + 96);
+		UIContext::Font::Small.drawString("Drag & Drop a MOV or MP4 File to Load New Video", drag_area.x + 32, drag_area.y + drag_area.height / 2 + 128);
 
-		MovieToLedUtils::Font::Middle.drawString("Products", drag_area.x, drag_area.y + drag_area.height + 48);
+		UIContext::Font::Middle.drawString("Products", drag_area.x, drag_area.y + drag_area.height + 48);
 		if (mtl_data.product_profiles.empty()) {
-			MovieToLedUtils::Font::Small.drawString("No Products", drag_area.x, drag_area.y + drag_area.height + 48 + 26);
+			UIContext::Font::Small.drawString("No Products", drag_area.x, drag_area.y + drag_area.height + 48 + 26);
 		} else {
 			if (profile_manager.isExist(profile_manager.getProfileIndex())) {
-				MovieToLedUtils::Font::Middle.drawString("Product Profile", drag_area.position.x + MovieToLedUtils::DisplaySize::FULL_HD_WIDTH / 4 + 32, drag_area.y + drag_area.height + 48);
+				UIContext::Font::Middle.drawString("Product Profile", drag_area.position.x + UIContext::pc_display_size.width / 4 + 32, drag_area.y + drag_area.height + 48);
 			} else {
-				MovieToLedUtils::Font::Middle.drawString("Product Profile : New Product", drag_area.position.x + MovieToLedUtils::DisplaySize::FULL_HD_WIDTH / 4 + 32, drag_area.y + drag_area.height + 48);
+				UIContext::Font::Middle.drawString("Product Profile : New Product", drag_area.position.x + UIContext::pc_display_size.width / 4 + 32, drag_area.y + drag_area.height + 48);
 			}
 			profile_manager.draw();
 			device_map_panel.draw();
@@ -301,29 +294,29 @@ void MovieToLed::draw() {
 					color_change = true;
 					ofSetColor(254, 128, 51);
 				}
-				MovieToLedUtils::Font::Small.drawString(ofToString(i + 1) + ". " + product_name, drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 84 * i);
+				UIContext::Font::Small.drawString(ofToString(i + 1) + ". " + product_name, drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 84 * i);
 				if (profile_manager.isExist(i)) {
 					uint16_t num_product = mtl_data.product_profiles[i].num_product;
 					uint16_t num_device = mtl_data.product_profiles[i].num_device;
 					uint16_t start_product_id = mtl_data.product_profiles[i].start_product_id;
 					uint16_t end_product_id = mtl_data.product_profiles[i].end_product_id;
-					MovieToLedUtils::Font::Tiny.drawString(ofToString(num_product) + " Products x " + ofToString(num_device) + " Devices", drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 18 + 84 * i);
+					UIContext::Font::Tiny.drawString(ofToString(num_product) + " Products x " + ofToString(num_device) + " Devices", drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 18 + 84 * i);
 					if (mtl_data.product_profiles[i].generate_data) {
 						if (start_product_id == 0 && end_product_id == num_product - 1) {
-							MovieToLedUtils::Font::Tiny.drawString("Product ID Range : " + ofToString(start_product_id) + " - " + ofToString(end_product_id) + " : All Product ID", drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 36 + 84 * i);
+							UIContext::Font::Tiny.drawString("Product ID Range : " + ofToString(start_product_id) + " - " + ofToString(end_product_id) + " : All Product ID", drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 36 + 84 * i);
 						} else {
-							MovieToLedUtils::Font::Tiny.drawString("Product ID Range : " + ofToString(start_product_id) + " - " + ofToString(end_product_id), drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 36 + 84 * i);
+							UIContext::Font::Tiny.drawString("Product ID Range : " + ofToString(start_product_id) + " - " + ofToString(end_product_id), drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 36 + 84 * i);
 						}
 						if (mtl_data.product_profiles[i].isOutputBin()) {
 							std::string device_type = mtl_data.product_profiles[i].device_type == ProductProfile::DeviceType::LINE4 ? "4Line" : "8Line";
 							std::string format = mtl_data.product_profiles[i].device_id_format == ProductProfile::DeviceIdFormat::HEX ? "HEX (ID : 00 - FF)" : "DEC (ID : 00 - 99)";
-							MovieToLedUtils::Font::Tiny.drawString("BIN : Device Type : " + device_type + " / ID Format : " + format, drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 54 + 84 * i);
+							UIContext::Font::Tiny.drawString("BIN : Device Type : " + device_type + " / ID Format : " + format, drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 54 + 84 * i);
 						}
 					} else {
-						MovieToLedUtils::Font::Tiny.drawString("Data Generation : OFF. No LED Data will be Generated.", drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 36 + 84 * i);
+						UIContext::Font::Tiny.drawString("Data Generation : OFF. No LED Data will be Generated.", drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 36 + 84 * i);
 					}
 				} else {
-					MovieToLedUtils::Font::Tiny.drawString("New Product. Enter Device Profile.", drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 18 + 84 * i);
+					UIContext::Font::Tiny.drawString("New Product. Enter Product Configuration.", drag_area.x, drag_area.y + drag_area.height + 48 + 26 + 18 + 84 * i);
 				}
 				if (color_change) {
 					ofSetColor(255, 255, 255);
@@ -331,16 +324,16 @@ void MovieToLed::draw() {
 			}
 		}
 		if (mtl_data.product_profiles.empty() || MovieToLedRuntimeState::config_all_exist) {
-			MovieToLedUtils::Font::Middle.drawString("Video", drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48);
+			UIContext::Font::Middle.drawString("Video", drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48);
 			snprintf(str, 128, "Name : %s", video_file_name.c_str());
-			MovieToLedUtils::Font::Small.drawString(str, drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48 + 26);
+			UIContext::Font::Small.drawString(str, drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48 + 26);
 			snprintf(str, 128, "Duration : %d Frame (%02d:%02d)", total_frame, duration_min, duration_sec);
-			MovieToLedUtils::Font::Small.drawString(str, drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48 + 52);
+			UIContext::Font::Small.drawString(str, drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48 + 52);
 
-			MovieToLedUtils::Font::Middle.drawString("Data Setting", drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48 + 100);
+			UIContext::Font::Middle.drawString("Data Setting", drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48 + 100);
 			snprintf(str, 128, "Sound Number : %d", (int)sound_number);
-			MovieToLedUtils::Font::Small.drawString(str, drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48 + 126);
-			MovieToLedUtils::Font::Small.drawString(extractor.isLoopPlayback() ? "M5LED Loop Playback : ON" : "M5LED Loop Playback : OFF", drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48 + 152);
+			UIContext::Font::Small.drawString(str, drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48 + 126);
+			UIContext::Font::Small.drawString(extractor.isLoopPlayback() ? "M5LED Loop Playback : ON" : "M5LED Loop Playback : OFF", drag_area.x + drag_area.width / 2 + 32, drag_area.y + drag_area.height + 48 + 152);
 
 			data_panel.draw();
 			metadata_panel.draw();
@@ -349,60 +342,47 @@ void MovieToLed::draw() {
 			if (MovieToLedRuntimeState::isReady()) {
 				// 動画ロード完了 and .conf存在
 				ofSetColor(255, 255, 255, 255);
-				MovieToLedUtils::Font::Large.drawString("Press SPACE Key Start MtL", 10, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT * 4 / 5);
+				UIContext::Font::Large.drawString("Press SPACE Key Start MtL", 10, UIContext::pc_display_size.height * 4 / 5);
 				if (mtl_data.led_product.isOutputBin()) {
 					snprintf(str, 128, "Create: %02X_XXX-XXX.M5LED and %05X_XX.BIN File", (int)sound_number, (int)sound_number);
-					MovieToLedUtils::Font::Middle.drawString(str, 10, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT * 4 / 5 + 60);
+					UIContext::Font::Middle.drawString(str, 10, UIContext::pc_display_size.height * 4 / 5 + 60);
 					if (MovieToLedRuntimeState::m5led_already_exists) {
 						snprintf(str, 128, "Warnig: %02X_XXX-XXX.M5LED and %05X_XX.BIN File will be Overwritten", (int)sound_number, (int)sound_number);
-						MovieToLedUtils::Font::Middle.drawString(str, 10, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT * 4 / 5 + 110);
+						UIContext::Font::Middle.drawString(str, 10, UIContext::pc_display_size.height * 4 / 5 + 110);
 					}
 				} else {
 					snprintf(str, 128, "Create: %02X_XXX-XXX.M5LED", (int)sound_number);
-					MovieToLedUtils::Font::Middle.drawString(str, 10, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT * 4 / 5 + 60);
+					UIContext::Font::Middle.drawString(str, 10, UIContext::pc_display_size.height * 4 / 5 + 60);
 					if (MovieToLedRuntimeState::m5led_already_exists) {
 						snprintf(str, 128, "Warnig: %02X_XXX-XXX.M5LED will be Overwritten", (int)sound_number);
-						MovieToLedUtils::Font::Middle.drawString(str, 10, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT * 4 / 5 + 110);
+						UIContext::Font::Middle.drawString(str, 10, UIContext::pc_display_size.height * 4 / 5 + 110);
 					}
 				}
 			} else if (!extractor.isLoadedVideo()) {
 				ofSetColor(255, 255, 255, 255);
-				MovieToLedUtils::Font::Middle.drawString("Press SHIFT Key Switch Window Size FULL HD or UHD 4K", 10, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT * 4 / 5);
+				UIContext::Font::Middle.drawString("Press SHIFT Key Switch Window Size FULL HD or UHD 4K", 10, UIContext::pc_display_size.height * 4 / 5);
 			}
 		}
 	}
 	// 共通
 	ofSetColor(255, 255, 255, 255);
-	MovieToLedUtils::Font::Small.drawString("MovieToLED PRO Ver." SOFTWARE_VER, drag_area.position.x, drag_area.position.y - 8);
-	MovieToLedUtils::Font::Small.drawString(window_mode, drag_area.position.x + drag_area.width - 96, drag_area.position.y - 8);
+	UIContext::Font::Small.drawString("MovieToLED PRO Ver." SOFTWARE_VER, drag_area.position.x, drag_area.position.y - 8);
+	UIContext::Font::Small.drawString(UIContext::display_mode, drag_area.position.x + drag_area.width - 96, drag_area.position.y - 8);
 }
 
-void MovieToLed::setWindowSize(int w, int h) {
-	if (!extractor.isLoadedVideo()) {
-		if (w >= MovieToLedUtils::DisplaySize::UHD_4K_WIDTH || h >= MovieToLedUtils::DisplaySize::UHD_4K_HEIGHT) {
-			ofSetWindowShape(MovieToLedUtils::DisplaySize::UHD_4K_WIDTH, MovieToLedUtils::DisplaySize::UHD_4K_HEIGHT);
-			window_width = MovieToLedUtils::DisplaySize::UHD_4K_WIDTH;
-			window_height = MovieToLedUtils::DisplaySize::UHD_4K_HEIGHT;
-			window_mode = "UHD 4K";
-			extractor.allocate(MovieToLedUtils::DisplaySize::UHD_4K_WIDTH, MovieToLedUtils::DisplaySize::UHD_4K_HEIGHT);
-		} else {
-			ofSetWindowShape(MovieToLedUtils::DisplaySize::FULL_HD_WIDTH, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT);
-			window_width = MovieToLedUtils::DisplaySize::FULL_HD_WIDTH;
-			window_height = MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT;
-			window_mode = "FULL HD";
-			extractor.allocate(MovieToLedUtils::DisplaySize::FULL_HD_WIDTH, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT);
+void MovieToLed::switchDisplaySize() {
+	if (MovieToLedRuntimeState::runtime_state == MovieToLedRuntimeState::RuntimeState::WAITING) {
+		int width = UIContext::display_size.width;
+		if (width == UIContext::FULL_HD.width) {
+			// FULL HD -> 4K
+			UIContext::setDisplaySize(UIContext::UHD_4K);
+			UIContext::display_mode = "UHD 4K";
+		} else if (width == UIContext::UHD_4K.width) {
+			// 4K -> FULL HD
+			UIContext::setDisplaySize(UIContext::FULL_HD);
+			UIContext::display_mode = "FULL HD";
 		}
-		ofSetWindowPosition(0, 30);
-	}
-}
-
-void MovieToLed::switchWindowSize() {
-	if (!extractor.isLoadedVideo()) {
-		if (window_width == MovieToLedUtils::DisplaySize::UHD_4K_WIDTH) {
-			setWindowSize(MovieToLedUtils::DisplaySize::FULL_HD_WIDTH, MovieToLedUtils::DisplaySize::FULL_HD_HEIGHT);
-		} else {
-			setWindowSize(MovieToLedUtils::DisplaySize::UHD_4K_WIDTH, MovieToLedUtils::DisplaySize::UHD_4K_HEIGHT);
-		}
+		extractor.allocate(UIContext::display_size.width, UIContext::display_size.height);
 	}
 }
 
@@ -431,7 +411,7 @@ void MovieToLed::exit() {
 void MovieToLed::loadProject() {
 	if (ProductProfileLoader::loadProductProfile(mtl_data.product_profiles)) {
 		ProductProfileLoader::loadProductDeviceProfile(mtl_data.product_profiles, profile_manager);
-		if(!ProductProfileLoader::loadPreviousProductProfileSetting(mtl_data.product_profiles)){
+		if (!ProductProfileLoader::loadPreviousProductProfileSetting(mtl_data.product_profiles)) {
 			clearMetadata();
 		}
 		profile_manager.selectProfile(0);

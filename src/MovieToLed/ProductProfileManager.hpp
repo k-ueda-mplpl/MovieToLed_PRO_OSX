@@ -77,10 +77,11 @@ private:
 	ofxLabel label_device_type;
 	ofParameter<bool> device_type_4line;
 	ofParameter<bool> device_type_8line;
-	ofxInputField<uint16_t> num_device;
+	ofxInputField<uint16_t> input_num_device;
 	ofxButton btn_create;
 	void deviceType4LineChanged(bool & type_4);
 	void deviceType8LineChanged(bool & type_8);
+	void inputNumDeviceChanged(uint16_t & num);
 
 	void verifyAllConfig();
 };

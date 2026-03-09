@@ -1,8 +1,6 @@
 #ifndef MOVEITOLED_HPP
 #define MOVEITOLED_HPP
 
-#pragma once
-
 #include "Converter.hpp"
 #include "DeviceMap.hpp"
 #include "Extractor.hpp"
@@ -14,6 +12,7 @@
 #include "MovieToLedUtils.hpp"
 #include "ProductProfileLoader.hpp"
 #include "ProductProfileManager.hpp"
+#include "UIContext.hpp"
 #include <ofxGui.h>
 #include <ofxJSON.h>
 #include <stdio.h>
@@ -29,7 +28,9 @@ private:
 	ProductProfileManager profile_manager { mtl_data.product_profiles };
 
 	uint8_t curr_product_index, end_product_index;
-	
+
+	void onLoadContents();
+
 	// DeviceMap
 	DeviceMap device_map;
 	ofxPanel device_map_panel;
@@ -55,9 +56,6 @@ private:
 	void playOnceChanged(bool & is_once);
 	void playLoopChanged(bool & is_loop);
 
-	string window_mode;
-	int window_width, window_height;
-
 	void loadProject();
 	void onDroppedVideo(const ofFile file);
 	// callback
@@ -68,15 +66,14 @@ public:
 	~MovieToLed();
 	void setup();
 	void setupRender(int x, int y, int width, int height, int gui_width);
-	
+
 	void dragEvent(ofDragInfo info);
 
 	void start();
 	void update();
 	void draw();
-	
-	void setWindowSize(int w, int h);
-	void switchWindowSize();
+
+	void switchDisplaySize();
 
 	void saveParameter();
 	void saveProductSetting();

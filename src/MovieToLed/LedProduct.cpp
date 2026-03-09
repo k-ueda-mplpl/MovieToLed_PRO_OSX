@@ -74,18 +74,32 @@ void LedProductManager::setLed(std::string path, uint16_t head_id, std::string &
 }
 
 void LedProductManager::setNumLed() {
-	for (LedProduct & product : products) {
-		for (LedProduct::Device & device : product.devices) {
-			for (int i = 0; i < LedProduct::Device::MAX_NUM_LINE; i++) {
-				for (int j = LedProduct::Device::MAX_NUM_LED - 1; j >= 1; j--) {
-					if (device.led[i][j].x == SHRT_MIN && device.led[i][j].y == SHRT_MIN) {
-						if (device.led[i][j - 1].x != SHRT_MIN || device.led[i][j - 1].y != SHRT_MIN) {
-							device.num_led[i] = j;
-							break;
+	ProductProfile & product_profile = product_profiles[profile_index];
+	std::string product_name = product_profile.product_name;
+	printf("Count %s LED\r\n", product_name.c_str());
+	uint16_t start = product_profile.start_product_id;
+	uint16_t end = product_profile.end_product_id;
+	for (uint16_t product_id = start; product_id <= end; product_id++) {
+		uint16_t product_array_index = product_id - start;
+		LedProduct & product = products[product_array_index];
+		for (uint16_t device_id = 0; device_id < product_profile.num_device; device_id++) {
+			LedProduct::Device & device = product.devices[device_id];
+			for (uint8_t line_id = 0; line_id < LedProduct::Device::MAX_NUM_LINE; line_id++) {
+				for (uint16_t led_id = LedProduct::Device::MAX_NUM_LED - 1; led_id > 0; led_id--) {
+					if (device.led[line_id][led_id].x == SHRT_MIN && device.led[line_id][led_id].y == SHRT_MIN) {
+						if (device.led[line_id][led_id - 1].x != SHRT_MIN || device.led[line_id][led_id - 1].y != SHRT_MIN) {
+							device.num_led[line_id] = led_id;
+							return;
+							// break;
 						}
+					} else {
+						device.num_led[line_id] = led_id;
+						return;
+						// break;
 					}
-					device.num_led[i] = 0;
+					device.num_led[line_id] = 0;
 				}
+				// printf("Product ID = %d, Device ID = %d, Line = %d LED Count = %d\r\n", product_id, device_id, line_id, device.num_led[line_id]);
 			}
 		}
 	}
@@ -135,11 +149,13 @@ bool LedProductManager::isOutput8lineBin() {
 	return product_profiles[profile_index].isOutput8lineBin();
 }
 
-uint16_t LedProductManager::getNumLed(uint16_t device_id, uint8_t line_id) {
+uint16_t LedProductManager::getNumLed(uint16_t product_id, uint16_t device_id, uint8_t line_id) {
+	uint16_t start_id = product_profiles[profile_index].start_product_id;
+	uint16_t end_id = product_profiles[profile_index].end_product_id;
 	uint16_t num_device = product_profiles[profile_index].num_device;
-	if (device_id >= 0 && device_id < num_device) {
-		if (line_id >= 0 && line_id < LedProduct::Device::MAX_NUM_LINE) {
-			return products[0].devices[device_id].num_led[line_id];
+	if(product_id >= start_id && product_id <= end_id){
+		if(device_id >= 0 && device_id < num_device){
+			return products[product_id - start_id].devices[device_id].num_led[line_id % LedProduct::Device::MAX_NUM_LINE];
 		}
 	}
 	return 0;

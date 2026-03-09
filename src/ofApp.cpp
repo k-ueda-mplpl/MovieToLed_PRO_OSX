@@ -3,7 +3,7 @@
 //--------------------------------------------------------------
 void ofApp::setup() {
 	MtL.setup();
-	MtL.setupRender(32, 32, ofGetWidth() - 64, ofGetHeight() / 3 - 64, 220);
+	MtL.setupRender(32, 32, UIContext::pc_display_size.width - 64, UIContext::pc_display_size.height / 3 - 64, 220);
 	ofSetFrameRate(60);
 	ofSetVerticalSync(true);
 }
@@ -28,7 +28,7 @@ void ofApp::keyPressed(int key) {
 	if (key == OF_KEY_SPACE) {
 		MtL.start();
 	} else if (key == OF_KEY_SHIFT) {
-		MtL.switchWindowSize();
+		MtL.switchDisplaySize();
 	}
 }
 

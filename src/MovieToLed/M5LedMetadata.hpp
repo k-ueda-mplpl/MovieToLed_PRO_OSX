@@ -1,6 +1,7 @@
 #ifndef M5LED_METADATA_HPP
 #define M5LED_METADATA_HPP
 
+#include "MovieToLedData.hpp"
 #include <cstdint>
 #include <string>
 
@@ -20,7 +21,7 @@ public:
 	void clear(std::string dir_path);
 
 private:
-	METADATA metadata[11];
+	METADATA metadata[MovieToLedData::MAX_SOUND_NUMBER + 1];
 };
 
 #endif

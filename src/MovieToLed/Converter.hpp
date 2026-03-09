@@ -25,9 +25,9 @@ public:
 	void createBIN8LINE(std::string parent_path, uint8_t sound_num);
 	void createBIN4LINE(std::string parent_path, uint8_t sound_num);
 
-	void setHeader8LINE(ofFile & file, uint8_t * buff, int buf_size, uint16_t frame_size, uint16_t device_id);
-	void setHeader4LINE_ABCD(ofFile & file, uint8_t * buff, int buf_size, uint16_t frame_size, uint16_t device_id);
-	void setHeader4LINE_EFGH(ofFile & file, uint8_t * buff, int buf_size, uint16_t frame_size, uint16_t device_id);
+	void setHeader8LINE(ofFile & file, uint8_t * buff, int buf_size, uint16_t frame_size, uint16_t product_id, uint16_t device_id);
+	void setHeader4LINE_ABCD(ofFile & file, uint8_t * buff, int buf_size, uint16_t frame_size, uint16_t product_id, uint16_t device_id);
+	void setHeader4LINE_EFGH(ofFile & file, uint8_t * buff, int buf_size, uint16_t frame_size, uint16_t product_id, uint16_t device_id);
 	void regulatorOn(uint8_t * buff, uint8_t num_line);
 	bool isBlack(uint8_t * buff, uint8_t num_led, int buff_size);
 

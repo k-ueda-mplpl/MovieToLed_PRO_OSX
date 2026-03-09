@@ -1,8 +1,6 @@
 #ifndef PRODUCT_PROFILE_LOADER
 #define PRODUCT_PROFILE_LOADER
 
-#pragma once
-
 #include "MovieToLedFileUtils.hpp"
 #include "MovieToLedRuntimeState.hpp"
 #include "ProductProfile.hpp"
@@ -21,8 +19,14 @@ public:
 			ofBuffer buff(file);
 			for (auto line : buff.getLines()) {
 				std::vector<std::string> dat = ofSplitString(line, ",");
-				std::string & name = dat[0];
+				if (dat.size() < 2) {
+					continue;
+				}
+				const std::string & name = dat[0];
 				uint16_t num_product = static_cast<uint16_t>(ofToInt(dat[1]));
+				if (name.empty() || num_product == 0) {
+					continue;
+				}
 				ProductProfile product_profile;
 				product_profile.setProductInfo(name, num_product);
 				profiles.push_back(product_profile);
@@ -55,6 +59,9 @@ public:
 					// DeviceType:4 or 8
 					// Devices:num device
 					std::vector<std::string> dat = ofSplitString(line, ":");
+					if (dat.size() < 2) {
+						continue;
+					}
 					if (dat[0] == "DeviceType") {
 						device_type = ofToInt(dat[1]) == 4 ? ProductProfile::DeviceType::LINE4 : ProductProfile::DeviceType::LINE8;
 					} else if (dat[0] == "Devices") {
@@ -67,7 +74,6 @@ public:
 			}
 		}
 	};
-
 	static bool loadPreviousProductProfileSetting(std::vector<ProductProfile> & profiles) {
 		ofxJSONElement json;
 		if (json.open(ofToDataPath(MovieToLedUtils::FilePaths::PRODUCT_SETTING_JSON))) {

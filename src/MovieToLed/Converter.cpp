@@ -162,7 +162,7 @@ void Converter::createBIN4LINE(std::string parent_path, uint8_t sound_num) {
 	}
 }
 
-void Converter::setHeader8LINE(ofFile & file, uint8_t * buff, int buf_size, uint16_t num_frame, uint16_t device_id) {
+void Converter::setHeader8LINE(ofFile & file, uint8_t * buff, int buf_size, uint16_t num_frame, uint16_t product_id, uint16_t device_id) {
 	memset(buff, 0, buf_size);
 	buff[0] = 3; // 256 x n x 8 (n = 3 -> RGB)
 	buff[1] = 3;
@@ -178,18 +178,18 @@ void Converter::setHeader8LINE(ofFile & file, uint8_t * buff, int buf_size, uint
 	buff[13] = (num_frame >> 8) & 0xff;
 	buff[14] = num_frame & 0xff; // Frame Duration Low
 	buff[15] = num_frame & 0xff;
-	buff[16] = mtl_data.led_product.getNumLed(device_id, 0); // led
-	buff[17] = mtl_data.led_product.getNumLed(device_id, 1);
-	buff[18] = mtl_data.led_product.getNumLed(device_id, 2);
-	buff[19] = mtl_data.led_product.getNumLed(device_id, 3);
-	buff[20] = mtl_data.led_product.getNumLed(device_id, 4);
-	buff[21] = mtl_data.led_product.getNumLed(device_id, 5);
-	buff[22] = mtl_data.led_product.getNumLed(device_id, 6);
-	buff[23] = mtl_data.led_product.getNumLed(device_id, 7);
+	buff[16] = mtl_data.led_product.getNumLed(product_id, device_id, 0); // led
+	buff[17] = mtl_data.led_product.getNumLed(product_id, device_id, 1);
+	buff[18] = mtl_data.led_product.getNumLed(product_id, device_id, 2);
+	buff[19] = mtl_data.led_product.getNumLed(product_id, device_id, 3);
+	buff[20] = mtl_data.led_product.getNumLed(product_id, device_id, 4);
+	buff[21] = mtl_data.led_product.getNumLed(product_id, device_id, 5);
+	buff[22] = mtl_data.led_product.getNumLed(product_id, device_id, 6);
+	buff[23] = mtl_data.led_product.getNumLed(product_id, device_id, 7);
 	file.write((const char *)(buff), buf_size);
 }
 
-void Converter::setHeader4LINE_ABCD(ofFile & file, uint8_t * buff, int buf_size, uint16_t num_frame, uint16_t device_id) {
+void Converter::setHeader4LINE_ABCD(ofFile & file, uint8_t * buff, int buf_size, uint16_t num_frame, uint16_t product_id, uint16_t device_id) {
 	memset(buff, 0, buf_size);
 	buff[0] = 3; // 256 x n x 8 (n = 3 -> RGB)
 	buff[1] = 30; // FPS
@@ -198,14 +198,14 @@ void Converter::setHeader4LINE_ABCD(ofFile & file, uint8_t * buff, int buf_size,
 	buff[4] = 1; // format = 1
 	buff[5] = (num_frame >> 8) & 0xff; // Frame Duration High
 	buff[6] = num_frame & 0xff; // Frame Duration Low
-	buff[7] = mtl_data.led_product.getNumLed(device_id, 0); // led
-	buff[8] = mtl_data.led_product.getNumLed(device_id, 1);
-	buff[9] = mtl_data.led_product.getNumLed(device_id, 2);
-	buff[10] = mtl_data.led_product.getNumLed(device_id, 3);
+	buff[7] = mtl_data.led_product.getNumLed(product_id, device_id, 0); // led
+	buff[8] = mtl_data.led_product.getNumLed(product_id, device_id, 1);
+	buff[9] = mtl_data.led_product.getNumLed(product_id, device_id, 2);
+	buff[10] = mtl_data.led_product.getNumLed(product_id, device_id, 3);
 	file.write((const char *)(buff), buf_size);
 }
 
-void Converter::setHeader4LINE_EFGH(ofFile & file, uint8_t * buff, int buf_size, uint16_t num_frame, uint16_t device_id) {
+void Converter::setHeader4LINE_EFGH(ofFile & file, uint8_t * buff, int buf_size, uint16_t num_frame, uint16_t product_id, uint16_t device_id) {
 	memset(buff, 0, buf_size);
 	buff[0] = 3; // 256 x n x 8 (n = 3 -> RGB)
 	buff[1] = 30; // FPS
@@ -214,10 +214,10 @@ void Converter::setHeader4LINE_EFGH(ofFile & file, uint8_t * buff, int buf_size,
 	buff[4] = 1; // format = 1
 	buff[5] = ((num_frame + 1) >> 8) & 0xff; // Frame Duration High
 	buff[6] = (num_frame + 1) & 0xff; // Frame Duration Low
-	buff[7] = mtl_data.led_product.getNumLed(device_id, 4); // led
-	buff[8] = mtl_data.led_product.getNumLed(device_id, 5);
-	buff[9] = mtl_data.led_product.getNumLed(device_id, 6);
-	buff[10] = mtl_data.led_product.getNumLed(device_id, 7);
+	buff[7] = mtl_data.led_product.getNumLed(product_id, device_id, 4); // led
+	buff[8] = mtl_data.led_product.getNumLed(product_id, device_id, 5);
+	buff[9] = mtl_data.led_product.getNumLed(product_id, device_id, 6);
+	buff[10] = mtl_data.led_product.getNumLed(product_id, device_id, 7);
 	file.write((const char *)(buff), buf_size);
 }
 
@@ -541,8 +541,8 @@ bool Converter::convert(OutputFiles & output_files, uint8_t sound_number, uint16
 					conv_file_name = conv_file[0].getFileName();
 					// ヘッダー
 					// 8LINEのBINは1フレームのデータが6144(= 256 * 3 * 8)byte
-					setHeader8LINE(conv_file[0], dst, MovieToLedData::BUFF_SIZE, num_total_frame, device_id);
-					setHeader8LINE(conv_file[1], dst, MovieToLedData::BUFF_SIZE, num_total_frame, device_id);
+					setHeader8LINE(conv_file[0], dst, MovieToLedData::BUFF_SIZE, num_total_frame, product_id, device_id);
+					setHeader8LINE(conv_file[1], dst, MovieToLedData::BUFF_SIZE, num_total_frame, product_id, device_id);
 					// M5LED -> BIN
 					// 1000FPSのBIN
 					convert1000FPS(m5led_file, conv_file[0], file_size[0]);
@@ -555,8 +555,8 @@ bool Converter::convert(OutputFiles & output_files, uint8_t sound_number, uint16
 					// printf("Convert to BIN for 4LINE\r\n");
 					// ヘッダー
 					// 4LINEのBINは1フレームのデータが3072(= 256 * 3 * 4)byte
-					setHeader4LINE_ABCD(conv_file[0], dst, MovieToLedData::BUFF_SIZE / 2, num_total_frame, device_id);
-					setHeader4LINE_EFGH(conv_file[1], dst, MovieToLedData::BUFF_SIZE / 2, num_total_frame, device_id);
+					setHeader4LINE_ABCD(conv_file[0], dst, MovieToLedData::BUFF_SIZE / 2, num_total_frame, product_id, device_id);
+					setHeader4LINE_EFGH(conv_file[1], dst, MovieToLedData::BUFF_SIZE / 2, num_total_frame, product_id, device_id);
 					// M5LED -> BIN
 					// 4LINEのBIN(8ラインを4ラインずつ)
 					convert4LINE(m5led_file, conv_file, &file_size[2], 2);

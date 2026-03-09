@@ -34,7 +34,7 @@ public:
 private:
 	LedGain led_gain;
 	LedMax led_max;
-	
+
 	inline static constexpr float GAMMA = 2.2; //gammma
 	uint8_t gamma_table[256];
 

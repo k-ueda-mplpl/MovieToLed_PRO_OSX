@@ -1,8 +1,6 @@
 #ifndef MOVIE_TO_LED_UTILS_HPP
 #define MOVIE_TO_LED_UTILS_HPP
 
-#pragma once
-
 #include "LedProduct.hpp"
 #include <ofTrueTypeFont.h>
 
@@ -29,20 +27,6 @@ public:
 		inline static const std::string DEVICE_1000FPS_DIR = "/1000FPS Device 256LED";
 		inline static const std::string DEVICE_4LINE_ABCD_DIR = "/4LINE Device/LINE0-3";
 		inline static const std::string DEVICE_4LINE_EFGH_DIR = "/4LINE Device/LINE4-7";
-	};
-
-	struct DisplaySize {
-		inline static const uint16_t FULL_HD_WIDTH = 1920;
-		inline static const uint16_t FULL_HD_HEIGHT = 1080;
-		inline static const uint16_t UHD_4K_WIDTH = 3840;
-		inline static const uint16_t UHD_4K_HEIGHT = 2160;
-	};
-
-	struct Font {
-		inline static ofTrueTypeFont Tiny;
-		inline static ofTrueTypeFont Small;
-		inline static ofTrueTypeFont Middle;
-		inline static ofTrueTypeFont Large;
 	};
 };
 

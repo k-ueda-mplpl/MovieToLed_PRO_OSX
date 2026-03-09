@@ -26,6 +26,7 @@ public:
 
 	inline static const uint16_t BUFF_SIZE = LedProduct::Device::MAX_NUM_LED * 3 * LedProduct::Device::MAX_NUM_LINE;
 	inline static const uint8_t MAX_NUM_SCENE = 70;
+	inline static const uint8_t MAX_SOUND_NUMBER = 10;
 };
 
 #endif

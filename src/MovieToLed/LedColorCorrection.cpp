@@ -1,6 +1,6 @@
 #include "LedColorCorrection.hpp"
 #include "MovieToLedRuntimeState.hpp"
-#include "MovieToLedUtils.hpp"
+#include "UIContext.hpp"
 
 LedColorCorrection::LedColorCorrection() {
 	for (int i = 0; i < 256; i++) {
@@ -53,9 +53,9 @@ void LedColorCorrection::setupRender(int x, int y, int panel_width) {
 }
 
 void LedColorCorrection::draw() {
-	MovieToLedUtils::Font::Middle.drawString("LED Color Gain", render_x, render_y);
-	MovieToLedUtils::Font::Small.drawString("Normal LED", render_x, render_y + 10 + param_panel.getHeight() + 26);
-	MovieToLedUtils::Font::Small.drawString("Panel LED", render_x, render_y + 10 + param_panel.getHeight() + 104);
+	UIContext::Font::Middle.drawString("LED Color Gain", render_x, render_y);
+	UIContext::Font::Small.drawString("Normal LED", render_x, render_y + 10 + param_panel.getHeight() + 26);
+	UIContext::Font::Small.drawString("Panel LED", render_x, render_y + 10 + param_panel.getHeight() + 104);
 
 	param_panel.draw();
 
@@ -68,23 +68,23 @@ void LedColorCorrection::draw() {
 		ofDrawLine(plot_area.getPosition().x, plot_area.getPosition().y + 32 * (i + 1), plot_area.getPosition().x + plot_area.getWidth(), plot_area.getPosition().y + 32 * (i + 1));
 	}
 	ofSetColor(0, 153, 204, 255);
-	MovieToLedUtils::Font::Tiny.drawString("WHT Normal LED", plot_area.getPosition().x + 4, plot_area.getPosition().y + 20 + 32);
+	UIContext::Font::Tiny.drawString("WHT Normal LED", plot_area.getPosition().x + 4, plot_area.getPosition().y + 20 + 32);
 	led_white_curve.draw();
-	MovieToLedUtils::Font::Small.drawString("White MAX:" + ofToString((int)led_max.led_white), render_x, render_y + 10 + param_panel.getHeight() + 52);
+	UIContext::Font::Small.drawString("White MAX:" + ofToString((int)led_max.led_white), render_x, render_y + 10 + param_panel.getHeight() + 52);
 	ofSetColor(0, 102, 223, 255);
-	MovieToLedUtils::Font::Tiny.drawString("RGB Normal LED", plot_area.getPosition().x + 4, plot_area.getPosition().y + 20 + 32 * 2);
+	UIContext::Font::Tiny.drawString("RGB Normal LED", plot_area.getPosition().x + 4, plot_area.getPosition().y + 20 + 32 * 2);
 	led_rgb_curve.draw();
-	MovieToLedUtils::Font::Small.drawString("Other Color MAX:" + ofToString((int)led_max.led_rgb), render_x, render_y + 10 + param_panel.getHeight() + 78);
+	UIContext::Font::Small.drawString("Other Color MAX:" + ofToString((int)led_max.led_rgb), render_x, render_y + 10 + param_panel.getHeight() + 78);
 	ofSetColor(254, 145, 0, 255);
-	MovieToLedUtils::Font::Tiny.drawString("WHT Panel LED", plot_area.getPosition().x + 4, plot_area.getPosition().y + 20 + 32 * 3);
+	UIContext::Font::Tiny.drawString("WHT Panel LED", plot_area.getPosition().x + 4, plot_area.getPosition().y + 20 + 32 * 3);
 	panel_white_curve.draw();
-	MovieToLedUtils::Font::Small.drawString("White MAX:" + ofToString((int)led_max.panel_white), render_x, render_y + 10 + param_panel.getHeight() + 130);
+	UIContext::Font::Small.drawString("White MAX:" + ofToString((int)led_max.panel_white), render_x, render_y + 10 + param_panel.getHeight() + 130);
 	ofSetColor(228, 0, 6, 255);
-	MovieToLedUtils::Font::Tiny.drawString("RGB Panel LED", plot_area.getPosition().x + 4, plot_area.getPosition().y + 20 + 32 * 4);
+	UIContext::Font::Tiny.drawString("RGB Panel LED", plot_area.getPosition().x + 4, plot_area.getPosition().y + 20 + 32 * 4);
 	panel_rgb_curve.draw();
-	MovieToLedUtils::Font::Small.drawString("Other Color MAX:" + ofToString((int)led_max.panel_rgb), render_x, render_y + 10 + param_panel.getHeight() + 156);
+	UIContext::Font::Small.drawString("Other Color MAX:" + ofToString((int)led_max.panel_rgb), render_x, render_y + 10 + param_panel.getHeight() + 156);
 	ofSetColor(14, 167, 39, 255);
-	MovieToLedUtils::Font::Tiny.drawString("Gamma Curve", plot_area.getPosition().x + 4, plot_area.getPosition().y + 20);
+	UIContext::Font::Tiny.drawString("Gamma Curve", plot_area.getPosition().x + 4, plot_area.getPosition().y + 20);
 	gamma_curve.draw();
 }
 

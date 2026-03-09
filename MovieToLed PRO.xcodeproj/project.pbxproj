@@ -685,6 +685,7 @@
 		"98B53D81-F4AB-4178-84C5-A1E85B6556FC" /* transform.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = transform.hpp; sourceTree = "<group>"; };
 		"98BCD6DD-18DC-47BE-8579-4EFEA550834F" /* reduce_key_val.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = reduce_key_val.hpp; sourceTree = "<group>"; };
 		98C417D02ED56C31009DE530 /* MovieToLedUtils.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = MovieToLedUtils.hpp; sourceTree = "<group>"; };
+		98C75DCC2F5E654D008FE9BC /* UIContext.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = UIContext.hpp; sourceTree = "<group>"; };
 		"992EA2DF-8BF8-4D18-B66D-8B9A3521C3E6" /* persistence.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = persistence.hpp; sourceTree = "<group>"; };
 		"99C59EB7-5E5C-4CAA-B2AE-5BBFCE7042AB" /* cuda.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda.hpp; sourceTree = "<group>"; };
 		"9A0FDD83-E1AC-4A62-8BE1-C4B1117A6460" /* hfs.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = hfs.hpp; sourceTree = "<group>"; };
@@ -2541,18 +2542,10 @@
 		980426402E8D1C1D0058FFDF /* MovieToLed */ = {
 			isa = PBXGroup;
 			children = (
+				98C75DCC2F5E654D008FE9BC /* UIContext.hpp */,
 				98AA2E062F5B86DD004CC4AB /* LedColorCorrection.hpp */,
 				98AA2E072F5B86DD004CC4AB /* LedColorCorrection.cpp */,
 				98AA2E082F5B86DD004CC4AB /* LedLoader.hpp */,
-				98AA2E092F5B86DD004CC4AB /* MovieToLedData.hpp */,
-				98AA2E0A2F5B86DD004CC4AB /* MovieToLedData.cpp */,
-				98AA2E0B2F5B86DD004CC4AB /* MovieToLedFileUtils.hpp */,
-				98AA2E0C2F5B86DD004CC4AB /* MovieToLedRuntimeState.hpp */,
-				98AA2E0D2F5B86DD004CC4AB /* ProductProfile.hpp */,
-				98AA2E0E2F5B86DD004CC4AB /* ProductProfileLoader.hpp */,
-				98AA2E0F2F5B86DD004CC4AB /* ProductProfileManager.hpp */,
-				98AA2E102F5B86DD004CC4AB /* ProductProfileManager.cpp */,
-				98C417D02ED56C31009DE530 /* MovieToLedUtils.hpp */,
 				980426332E8D1C1D0058FFDF /* Converter.hpp */,
 				980426342E8D1C1D0058FFDF /* Converter.cpp */,
 				980426352E8D1C1D0058FFDF /* DeviceMap.hpp */,
@@ -2561,10 +2554,19 @@
 				980426382E8D1C1D0058FFDF /* Extractor.cpp */,
 				9804263A2E8D1C1D0058FFDF /* LedProduct.hpp */,
 				9804263B2E8D1C1D0058FFDF /* LedProduct.cpp */,
+				98AA2E092F5B86DD004CC4AB /* MovieToLedData.hpp */,
+				98AA2E0A2F5B86DD004CC4AB /* MovieToLedData.cpp */,
+				98AA2E0B2F5B86DD004CC4AB /* MovieToLedFileUtils.hpp */,
+				98AA2E0C2F5B86DD004CC4AB /* MovieToLedRuntimeState.hpp */,
+				98C417D02ED56C31009DE530 /* MovieToLedUtils.hpp */,
 				9804263C2E8D1C1D0058FFDF /* M5LedMetadata.hpp */,
 				9804263D2E8D1C1D0058FFDF /* M5LedMetadata.cpp */,
 				9804263E2E8D1C1D0058FFDF /* MovieToLed.hpp */,
 				9804263F2E8D1C1D0058FFDF /* MovieToLed.cpp */,
+				98AA2E0D2F5B86DD004CC4AB /* ProductProfile.hpp */,
+				98AA2E0E2F5B86DD004CC4AB /* ProductProfileLoader.hpp */,
+				98AA2E0F2F5B86DD004CC4AB /* ProductProfileManager.hpp */,
+				98AA2E102F5B86DD004CC4AB /* ProductProfileManager.cpp */,
 			);
 			path = MovieToLed;
 			sourceTree = "<group>";

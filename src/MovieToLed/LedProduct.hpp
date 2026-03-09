@@ -79,7 +79,7 @@ public:
 	bool isOutput4lineBin();
 	bool isOutput8lineBin();
 
-	uint16_t getNumLed(uint16_t device_id, uint8_t line_id);
+	uint16_t getNumLed(uint16_t product_id, uint16_t device_id, uint8_t line_id);
 	const Led * getLed(uint16_t product_id, uint16_t device_id, uint8_t line_id, uint8_t led_id);
 
 	uint8_t getProfileIndex();
